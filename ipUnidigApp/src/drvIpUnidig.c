@@ -75,7 +75,7 @@ typedef struct {
    ELLNODE *next;
    ELLNODE *previous;
    asynUser *pasynUser;
-   asynUInt32DigitalCallbackCallback callback;
+   void (*callback)(void *userPvt, epicsUInt32 data);
    void *pvt;
    int mask;
 } ipUnidigClient;
@@ -144,14 +144,16 @@ static asynStatus read             (void *drvPvt, asynUser *pasynUser,
 
 /* These functions are in the asynUInt32Digital interface */
 static asynStatus registerCallback (void *drvPvt, asynUser *pasynUser,
-                                    asynUInt32DigitalCallbackCallback callback,
+                                    void (*callback)(void *userPvt, epicsUInt32 data),
                                     epicsUInt32 mask, void *pvt);
 static asynStatus cancelCallback   (void *drvPvt, asynUser *pasynUser,
-                                    asynUInt32DigitalCallbackCallback callback,
+                                    void (*callback)(void *userPvt, epicsUInt32 data),
                                     epicsUInt32 mask, void *pvt);
-static asynStatus setInterruptMask (void *drvPvt, asynUser *pasynUser,
+static asynStatus setInterrupt     (void *drvPvt, asynUser *pasynUser,
                                     epicsUInt32 mask, interruptReason reason);
-static asynStatus getInterruptMask (void *drvPvt, asynUser *pasynUser,
+static asynStatus clearInterrupt   (void *drvPvt, asynUser *pasynUser,
+                                    epicsUInt32 mask);
+static asynStatus getInterrupt     (void *drvPvt, asynUser *pasynUser,
                                     epicsUInt32 *mask, interruptReason reason);
 
 /* These functions are in the asynIpUnidig interface */
@@ -180,8 +182,9 @@ static const struct asynUInt32Digital ipUnidigUInt32D = {
 static const struct asynUInt32DigitalCallback ipUnidigUInt32DCb = {
     registerCallback,
     cancelCallback,
-    setInterruptMask,
-    getInterruptMask
+    setInterrupt,
+    clearInterrupt,
+    getInterrupt
 };
 
 /* asynIpUnidig methods */
@@ -493,8 +496,8 @@ static asynStatus setDAC(void *drvPvt, asynUser *pasynUser, epicsUInt16 value)
     return(asynSuccess); 
 }
 
-static asynStatus setInterruptMask(void *drvPvt, asynUser *pasynUser,
-                                    epicsUInt32 mask, interruptReason reason)
+static asynStatus setInterrupt(void *drvPvt, asynUser *pasynUser,
+                               epicsUInt32 mask, interruptReason reason)
 {
     drvIpUnidigPvt *pPvt = (drvIpUnidigPvt *)drvPvt;
 
@@ -514,8 +517,19 @@ static asynStatus setInterruptMask(void *drvPvt, asynUser *pasynUser,
     return(asynSuccess);
 }
 
-static asynStatus getInterruptMask(void *drvPvt, asynUser *pasynUser,
-                                    epicsUInt32 *mask, interruptReason reason)
+static asynStatus clearInterrupt(void *drvPvt, asynUser *pasynUser,
+                               epicsUInt32 mask)
+{
+    drvIpUnidigPvt *pPvt = (drvIpUnidigPvt *)drvPvt;
+
+    pPvt->risingMask &= ~mask;
+    pPvt->fallingMask &= ~mask;
+    writeIntEnableRegs(pPvt);
+    return(asynSuccess);
+}
+
+static asynStatus getInterrupt(void *drvPvt, asynUser *pasynUser,
+                               epicsUInt32 *mask, interruptReason reason)
 {
     drvIpUnidigPvt *pPvt = (drvIpUnidigPvt *)drvPvt;
 
@@ -570,7 +584,7 @@ static void intFunc(void *drvPvt)
 
 
 static asynStatus registerCallback(void *drvPvt, asynUser *pasynUser,
-                                   asynUInt32DigitalCallbackCallback callback,
+                                   void (*callback)(void *userPvt, epicsUInt32 data),
                                    epicsUInt32 mask, void *pvt)
 {
     /* Registers a callback to be called */
@@ -594,7 +608,7 @@ static asynStatus registerCallback(void *drvPvt, asynUser *pasynUser,
 }
 
 static asynStatus cancelCallback(void *drvPvt, asynUser *pasynUser,
-                                 asynUInt32DigitalCallbackCallback callback,
+                                 void (*callback)(void *userPvt, epicsUInt32 data),
                                  epicsUInt32 mask, void *pvt)
 {
     /* Cancels a callback registered above */
