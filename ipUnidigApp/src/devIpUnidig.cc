@@ -43,9 +43,7 @@
 #include "biRecord.h"
 #include "boRecord.h"
 #include "recSup.h"
-#include "epicsTypes.h"
 #include "epicsExport.h"
-#include "symTable.h"
 
 #include "Message.h"
 #include "Int32Message.h"
@@ -63,6 +61,7 @@ extern "C"
 #endif
 volatile int devLiIpUnidigDebug = 0;
 }
+epicsExportAddress(int, devLiIpUnidigDebug);
 
 class LiIpUnidig : public DevMpf
 {
@@ -141,6 +140,7 @@ extern "C"
 #endif
 volatile int devBiIpUnidigDebug = 0;
 }
+epicsExportAddress(int, devBiIpUnidigDebug);
 
 class DevPvt
 {
@@ -235,6 +235,7 @@ extern "C"
 #endif
 volatile int devBoIpUnidigDebug = 0;
 }
+epicsExportAddress(int, devBoIpUnidigDebug);
 
 class BoIpUnidig : public DevMpf
 {
@@ -303,12 +304,3 @@ long BoIpUnidig::completeIO(dbCommon* pr,Message* m)
         delete m;
         return rc;
 }
-
-void devIpUnidigRegister(void)
-{
-   addSymbol("devLiIpUnidigDebug", (epicsInt32 *)&devLiIpUnidigDebug, epicsInt32T);
-   addSymbol("devBiIpUnidigDebug", (epicsInt32 *)&devBiIpUnidigDebug, epicsInt32T);
-   addSymbol("devBoIpUnidigDebug", (epicsInt32 *)&devBoIpUnidigDebug, epicsInt32T);
-}
-
-epicsExportRegistrar(devIpUnidigRegister);

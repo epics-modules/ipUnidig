@@ -20,6 +20,7 @@ of this distribution.
 #define IpUnidigH
 
 #include <fppLib.h>
+#include <epicsTypes.h>
 #define cmdSetBits      0x1
 #define cmdClearBits    0x2
 #define cmdStartMonitor 0x3

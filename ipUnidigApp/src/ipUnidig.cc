@@ -30,11 +30,8 @@ of this distribution.
 #include <drvIpac.h>
 
 #include "errlog.h"
-#include "epicsTypes.h"
-#include "epicsExport.h"
 #include "gpHash.h"
-#include "symTable.h"
-
+#include <epicsExport.h>
 
 #include "Reboot.h"
 #include "ipUnidig.h"
@@ -75,6 +72,7 @@ extern "C"
 #endif
 volatile int IpUnidigDebug = 0;
 }
+epicsExportAddress(int, IpUnidigDebug);
 
 static void *ipUnidigHash;
 
@@ -432,10 +430,3 @@ void IpUnidig::rebootCallback(void *v)
    *pIpUnidig->intEnableRegisterHigh = 0;
    pIpUnidig->rebooting = true;
 }
-
-void ipUnidigRegister(void)
-{
-   addSymbol("IpUnidigDebug", (epicsInt32 *)&IpUnidigDebug, epicsInt32T);
-}
-
-epicsExportRegistrar(ipUnidigRegister);

@@ -39,10 +39,8 @@ of this distribution.
 
 #include <epicsThread.h>
 #include <epicsEvent.h>
-#include <epicsTypes.h>
-#include <iocsh.h>
 #include <epicsExport.h>
-#include "symTable.h"
+#include <iocsh.h>
 
 #include "Message.h"
 #include "Int32Message.h"
@@ -61,6 +59,7 @@ extern "C"
 #endif
 volatile int IpUnidigServerDebug = 0;
 }
+epicsExportAddress(int, IpUnidigServerDebug);
 
 class IpUnidigOutputServer {
 public:
@@ -300,7 +299,6 @@ static void initCallFunc(const iocshArgBuf *args)
 }
 void ipUnidigServerRegister(void)
 {
-    addSymbol("IpUnidigServerDebug", (epicsInt32 *)&IpUnidigServerDebug, epicsInt32T);
     iocshRegister(&initFuncDef,initCallFunc);
 }
 
