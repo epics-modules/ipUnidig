@@ -42,6 +42,15 @@ of this distribution.
 static char outputTaskname[] = "ipUnidigOut";
 static char inputTaskname[]  = "ipUnidigIn";
 
+extern "C"
+{
+#ifdef NODEBUG
+#define DEBUG(l,f,v...) ;
+#else
+#define DEBUG(l,f,v...) { if(l<=IpUnidigServerDebug) printf(f,## v); }
+#endif
+volatile int IpUnidigServerDebug = 0;
+}
 class IpUnidigOutputServer {
 public:
     IpUnidig *pIpUnidig;
@@ -128,6 +137,7 @@ void IpUnidigOutputServer::ipUnidigOutputServer(
             Int32Message *pmessage = (Int32Message *)inmsg;
             pmessage->status = 0;
             UINT32 mask = pmessage->address;
+            DEBUG(2, "ipUnidigOutputServer, mask=%x\n", mask);
             switch (pmessage->cmd) {
                case cmdSetBits:
                   if(pIpUnidig->setBits(mask)) pmessage->status= -1;
@@ -199,6 +209,7 @@ void IpUnidigInputServer::ipUnidigInputServer(IpUnidigInputServer *pServer)
             int sendStatus = 0;
             UINT32 bits;
             pIpUnidig->readBits(&bits);
+            DEBUG(5, "UnidigInputServer, bits=%x\n", bits);
             if (bits != pServer->oldBits) pServer->valueChange = true;
             if (pServer->valueChange) {
                 pServer->valueChange = false;
