@@ -9,7 +9,6 @@ LIBRARY_IOC_vxWorks += ipUnidig
 DBD += ipUnidigSupport.dbd
 
 ipUnidig_SRCS += drvIpUnidig.c
-ipUnidig_SRCS += devIpUnidig.cc
 
 INC += asynIpUnidig.h
 ipUnidig_LIBS += $(EPICS_BASE_IOC_LIBS)
