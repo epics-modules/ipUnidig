@@ -100,7 +100,7 @@ extern "C" IpUnidig* initIpUnidig(
     IpUnidigInputServer *pIpUnidigInputServer = 
             new IpUnidigInputServer(moduleName, pIpUnidig, queueSize,
             msecPoll, biMask);
-    taskId = taskSpawn(inputTaskname,100,VX_FP_TASK,2000,
+    taskId = taskSpawn(inputTaskname,100,VX_FP_TASK,4000,
         (FUNCPTR)IpUnidigInputServer::ipUnidigInputServer,
         (int)pIpUnidigInputServer,0,0,0,0,0,0,0,0,0);
     if(taskId==ERROR) {
@@ -110,7 +110,7 @@ extern "C" IpUnidig* initIpUnidig(
     
     IpUnidigOutputServer *pIpUnidigOutputServer = 
             new IpUnidigOutputServer(moduleName, pIpUnidig, queueSize);
-    taskId = taskSpawn(outputTaskname,100,VX_FP_TASK,2000,
+    taskId = taskSpawn(outputTaskname,100,VX_FP_TASK,4000,
         (FUNCPTR)IpUnidigOutputServer::ipUnidigOutputServer,
         (int)pIpUnidigOutputServer,0,0,0,0,0,0,0,0,0);
     if(taskId==ERROR) {
