@@ -1,4 +1,4 @@
-/* drvIpUnidig.h
+/* asynIpUnidig.h
 
     Author: Mark Rivers
     Date: 29-June-2004
@@ -10,8 +10,8 @@
    29-Jun-2004  MLR  Converted from MPF to asyn
 */
 
-#ifndef drvIpUnidigH
-#define drvIpUnidigH
+#ifndef asynIpUnidigH
+#define asynIpUnidigH
 
 #include <asynDriver.h>
 
@@ -44,4 +44,4 @@ typedef struct {
                                     void *pvt);
 } asynIpUnidig;
 
-#endif /* IpUnidigH */
+#endif /* asynIpUnidigH */
