@@ -6,7 +6,7 @@ include $(TOP)/configure/CONFIG
 
 LIBRARY_IOC_vxWorks += ipUnidig
 
-DBD += devIpUnidig.dbd
+DBD += ipUnidigSupport.dbd
 
 ipUnidig_SRCS += drvIpUnidig.c
 ipUnidig_SRCS += devIpUnidig.cc
