@@ -16,6 +16,7 @@ of this distribution.
                        to initIpUnidig to configure interrupts.  These
                        parameters are all optional, and the previous behavior
                        will be obtained if they are omitted.
+    May 27, 2003 MLR   Converted to EPICS R3.14.
 
     This is the code for input and output servers using the Greensprings 
     ipUnidig series of digital I/O IP modules.
@@ -31,13 +32,14 @@ of this distribution.
     and ipUnidigOut.
 */
 
-#include <vxWorks.h>
 #include <stdlib.h>
 #include <stddef.h>
 #include <string.h>
 #include <stdio.h>
-#include <taskLib.h>
-#include <sysLib.h>
+
+#include <epicsThread.h>
+#include <epicsEvent.h>
+#include <epicsTypes.h>
 
 #include "Message.h"
 #include "Int32Message.h"
@@ -70,7 +72,7 @@ private:
 class IpUnidigInputServer {
 public:
     static void ipUnidigInputServer(IpUnidigInputServer *);
-    IpUnidigInputServer(const char *moduleName, IpUnidig *pIpUnidig,
+    IpUnidigInputServer(const char *serverName, IpUnidig *pIpUnidig,
                         int queueSize, int msecPoll, int biMask);
 private:
     static void callBack(void *v, unsigned int bits);
@@ -81,42 +83,41 @@ private:
     UINT32 bits;
     UINT32 oldBits;
     bool valueChange;
-    SEM_ID semID;
-    int pollTicks;
+    epicsEventId eventID;
+    double pollTime;
 };
 
 
 extern "C" IpUnidig* initIpUnidig(
-    const char *moduleName, const char *carrierName, const char *siteName,
+    const char *serverName, ushort_t carrier, ushort_t slot,
     int queueSize, int msecPoll, 
     int intVec, int risingMask, int fallingMask, int biMask, int maxClients)
 {
-    int taskId;
-    
-    IpUnidig *pIpUnidig = IpUnidig::init(moduleName, carrierName, siteName,
+    IpUnidig *pIpUnidig = IpUnidig::init(carrier, slot,
                           intVec, risingMask, fallingMask, maxClients);
     if(!pIpUnidig) return(0);
 
     IpUnidigInputServer *pIpUnidigInputServer = 
-            new IpUnidigInputServer(moduleName, pIpUnidig, queueSize,
+            new IpUnidigInputServer(serverName, pIpUnidig, queueSize,
             msecPoll, biMask);
-    taskId = taskSpawn(inputTaskname,100,VX_FP_TASK,4000,
-        (FUNCPTR)IpUnidigInputServer::ipUnidigInputServer,
-        (int)pIpUnidigInputServer,0,0,0,0,0,0,0,0,0);
-    if(taskId==ERROR) {
-        printf("%s ipUnidigInputServer taskSpawn Failure\n", moduleName);
-        return(0);
-    }
+    epicsThreadId inputThreadId = epicsThreadCreate(inputTaskname,
+                             epicsThreadPriorityMedium, 10000,
+                             (EPICSTHREADFUNC)IpUnidigInputServer::ipUnidigInputServer,
+                             (void*) pIpUnidigInputServer);
+    if(inputThreadId == NULL)
+        errlogPrintf("%s IpUnidig Input Server ThreadCreate Failure\n",
+            serverName);
     
     IpUnidigOutputServer *pIpUnidigOutputServer = 
-            new IpUnidigOutputServer(moduleName, pIpUnidig, queueSize);
-    taskId = taskSpawn(outputTaskname,100,VX_FP_TASK,4000,
-        (FUNCPTR)IpUnidigOutputServer::ipUnidigOutputServer,
-        (int)pIpUnidigOutputServer,0,0,0,0,0,0,0,0,0);
-    if(taskId==ERROR) {
-        printf("%s ipUnidigOutputServer taskSpawn Failure\n", moduleName);
-        return(0);
-    }
+            new IpUnidigOutputServer(serverName, pIpUnidig, queueSize);
+    epicsThreadId outputThreadId = epicsThreadCreate(outputTaskname,
+                             epicsThreadPriorityMedium, 10000,
+                             (EPICSTHREADFUNC)IpUnidigOutputServer::ipUnidigOutputServer,
+                             (void*) pIpUnidigOutputServer);
+    if(outputThreadId == NULL)
+        errlogPrintf("%s IpUnidig Output Server ThreadCreate Failure\n",
+            serverName);
+    
     return(pIpUnidig);
 }
 
@@ -185,9 +186,8 @@ IpUnidigInputServer::IpUnidigInputServer(const char *moduleName,
     strcat(serverName, "In");
     // Default of 100 msec for backwards compatibility with old version
     if (msecPoll == 0) msecPoll = 100;
-    pollTicks = msecPoll * sysClkRateGet() / 1000;
-    if (pollTicks < 1) pollTicks = 1;
-    semID = semBCreate(SEM_Q_PRIORITY, SEM_EMPTY);
+    pollTime = msecPoll / 1000.;
+    eventID = epicsEventCreate(epicsEventEmpty);
     pIpUnidig->registerCallback(callBack, (void *)this, biMask);
     pMessageServer = new MessageServer(serverName, queueSize);
 }
@@ -228,8 +228,8 @@ void IpUnidigInputServer::ipUnidigInputServer(IpUnidigInputServer *pServer)
             if(pServer->preceive==0) break;
             int sendStatus = 0;
             // Wait for an interrupt or for the poll time, whichever comes first
-            if (semTake(pServer->semID, pServer->pollTicks)) {
-               // The semTake timed out, so there was no interrupt, so we need
+            if (!epicsEventWaitWithTimeout(pServer->eventID, pServer->pollTime)) {
+               // The wait timed out, so there was no interrupt, so we need
                // to read the bits.  If there was an interrupt the bits got
                // passed to the callback.
                pIpUnidig->readBits(&pServer->bits);
@@ -262,5 +262,5 @@ void IpUnidigInputServer:: callBack(void *v, unsigned int bits)
    // This is the function that gets called by IpUnidig when an interrupt occurs
    IpUnidigInputServer *t = (IpUnidigInputServer *) v;
    t->bits = bits;
-   semGive(t->semID);
+   epicsEventSignal(t->eventID);
 }

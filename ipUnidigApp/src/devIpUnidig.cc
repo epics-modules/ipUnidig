@@ -8,6 +8,7 @@
 //                   GCC verions
 // 23-OCT-2002  MLR  Moved code from completeIO to startIO, and made .db file set
 //                   PINI=YES to be compatible with mpf1-9 and above 
+// 27-May-2003  MLR  Converted to EPICS R3.14.
 
 // This file provides device support for the following records for the
 // Greensprings Unidig digital I/O IP module.
@@ -30,11 +31,9 @@
 #include <string.h>
 #include <stdio.h>
 
-#include <semLib.h>
-#include <tickLib.h>
-#include <taskLib.h>
+#include <recGbl.h>
+#include <alarm.h>
 
-extern "C" {
 #include "dbAccess.h"
 #include "dbDefs.h"
 #include "link.h"
@@ -44,7 +43,7 @@ extern "C" {
 #include "biRecord.h"
 #include "boRecord.h"
 #include "recSup.h"
-}
+#include "epicsTypes.h"
 
 #include "Message.h"
 #include "Int32Message.h"
@@ -114,7 +113,7 @@ long LiIpUnidig::completeIO(dbCommon* pr,Message* m)
         if(rc==0) {
            li->val = pim->value;
            li->udf=0;
-           LIDEBUG(2,"LiIpUnidig::CompleteIO, new value=%lx\n",
+           LIDEBUG(2,"LiIpUnidig::CompleteIO, new value=%x\n",
                                  li->val);
         } else
            recGblSetSevr(pr,READ_ALARM,INVALID_ALARM);
@@ -145,7 +144,7 @@ volatile int devBiIpUnidigDebug = 0;
 class DevPvt
 {
 public:
-    UINT32 mask;     // mask for this particular bit
+    epicsUInt32 mask;     // mask for this particular bit
     longinRecord *pli;
 };
 
@@ -245,7 +244,7 @@ public:
 
         static long dev_init(void*);
 private:
-        UINT32 mask;
+        epicsUInt32 mask;
 };
 
 MAKE_DSET(devBoIpUnidig,BoIpUnidig::dev_init)

@@ -18,18 +18,21 @@ of this distribution.
                      Added additional arguments to IpUnidig::init and
                      IpUnidig::IpUnidig to support this.
     23-Apr-2003 MLR  Added functions for changing the rising and falling masks
+    27-May-2003 MLR  Converted to EPICS R3.14.
 */
 
-#include <vxWorks.h>
-#include <iv.h>
 #include <stdlib.h>
 #include <stddef.h>
 #include <string.h>
 #include <stdio.h>
 
-#include "epicsPrint.h"
+#include <intLib.h>
+#include <iv.h>
+#include <drvIpac.h>
 
-#include "IndustryPackModule.h"
+#include "errlog.h"
+#include "epicsTypes.h"
+
 #include "Reboot.h"
 #include "ipUnidig.h"
 
@@ -65,21 +68,25 @@ extern "C"
 #ifdef NODEBUG
 #define DEBUG(l,f,v...) ;
 #else
-#define DEBUG(l,f,v...) { if(l<=IpUnidigDebug) epicsPrintf(f,## v); }
+#define DEBUG(l,f,v...) { if(l<=IpUnidigDebug) errlogPrintf(f,## v); }
 #endif
 volatile int IpUnidigDebug = 0;
 }
 
 
 IpUnidig * IpUnidig::init(
-    const char *moduleName, const char *carrierName, const char *siteName,
+    ushort_t carrier, ushort_t slot,
     int intVec, int risingMask, int fallingMask, int maxClients)
-{
-    IndustryPackModule *pIPM = IndustryPackModule::createIndustryPackModule(
-        moduleName,carrierName,siteName);
-    if(!pIPM) return(0);
-    unsigned char manufacturer = pIPM->getManufacturer();
-    unsigned char model = pIPM->getModel();
+ {
+    if (ipmCheck(carrier, slot)) {
+       printf("IpUnidig::init: bad carrier or slot\n");
+       return(0);
+    }
+
+    ipac_idProm_t *id = (ipac_idProm_t *) ipmBaseAddr(carrier, slot, ipac_addrID);
+
+    unsigned char manufacturer = id->manufacturerId & 0xff;
+    unsigned char model = id->modelId & 0xff;
     switch (manufacturer) {
     case GREENSPRING_ID:
        switch (model) {
@@ -120,21 +127,21 @@ IpUnidig * IpUnidig::init(
        return(0);
        break;
     }
-    IpUnidig *pIpUnidig = new IpUnidig(pIPM, manufacturer, model, 
+    IpUnidig *pIpUnidig = new IpUnidig(carrier, slot, manufacturer, model, 
                                  intVec, risingMask, fallingMask, maxClients);
     return(pIpUnidig);
 }
 
-IpUnidig::IpUnidig(IndustryPackModule *pIndustryPackModule, 
+IpUnidig::IpUnidig(ushort_t carrier, ushort_t slot, 
                    unsigned char manufacturer, unsigned char model, 
                    int intVec, int risingMask, int fallingMask, int maxClients)
-: pIPM(pIndustryPackModule), manufacturer(manufacturer), model(model),
+: manufacturer(manufacturer), model(model),
                              rebooting(0), maxClients(maxClients), numClients(0)
 {
    // Set up the register pointers.  Set the defaults for most modules
    // Define registers in units of 16-bit words
 
-    UINT16 *base = (UINT16 *) pIPM->getMemBaseIO();
+    UINT16 *base = (UINT16 *) ipmBaseAddr(carrier, slot, ipac_addrIO);
     outputRegisterLow        = base;
     outputRegisterHigh       = base + 0x1;
     inputRegisterLow         = base + 0x2;
@@ -234,7 +241,7 @@ IpUnidig::IpUnidig(IndustryPackModule *pIndustryPackModule,
        *intPolarityRegisterHigh = (UINT16) (polarityMask >> 16);
        writeIntEnableRegs();
        Reboot::rebootHookAdd(rebootCallback,(void *)this);
-       pIPM->intEnable(0);
+       ipmIrqCmd(carrier, slot, 0, ipac_irqEnable);
     }
 }
 
