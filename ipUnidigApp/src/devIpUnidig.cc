@@ -6,6 +6,8 @@
 // Modifications:
 // 25-Nov-2000  MLR  Minor changes to function prototypes to avoid errors from newer
 //                   GCC verions
+// 23-OCT-2002  MLR  Moved code from completeIO to startIO, and made .db file set
+//                   PINI=YES to be compatible with mpf1-9 and above 
 
 // This file provides device support for the following records for the
 // Greensprings Unidig digital I/O IP module.
@@ -69,7 +71,6 @@ public:
 
         long startIO(dbCommon* pr);
         long completeIO(dbCommon* pr,Message* m);
-        virtual void connectIO(dbCommon *pr, Message *message);
 
         static long dev_init(void*);
 };
@@ -80,7 +81,8 @@ long LiIpUnidig::dev_init(void* v)
 {
         LIDEBUG(2,"devLiIpUnidig::dev_init(v)\n");
         longinRecord *li = (longinRecord*)v;
-        new LiIpUnidig((dbCommon*)li,&(li->inp));
+        LiIpUnidig* pLiIpUnidig = new LiIpUnidig((dbCommon*)li,&(li->inp));
+        pLiIpUnidig->bind();
         return(0);
 }
 
@@ -93,16 +95,11 @@ LiIpUnidig::LiIpUnidig(dbCommon* pr,DBLINK* l) : DevMpf(pr,l,true)
 
 long LiIpUnidig::startIO(dbCommon* pr)
 {
-        LIDEBUG(2,"LiIpUnidig::StartIO, record=%s\n", pr->name);
-        // This routine would normally not be called.
-        // The message which tells the server to send messages on change of
-        // state is sent in connectIO, not here, so that it is sent whenever
-        // the server connects.
-        // However, it could be called if the record is put in I/O event
-        // scanning or if the record is scanned for any other reason.
-        // There is nothing to do, since the val field is updated in
-        // completeIO which is called whenever the server detects a change in
-        // any input.
+        // This routine is typically called once when the record first processes.
+        LIDEBUG(5,"LiIpUnidig::startIO, enter, record=%s\n", pr->name);
+        Int32Message *psend = new Int32Message;
+        psend->cmd = cmdStartMonitor;
+        sendReply(psend);
         return(0);
 }
 
@@ -126,24 +123,6 @@ long LiIpUnidig::completeIO(dbCommon* pr,Message* m)
         return rc;
 }
 
-void LiIpUnidig::connectIO(dbCommon *pr, Message *message)
-{
-        // This connection routine is called whenever the server connects or
-        // disconnects.  When it connects we want to send it a message asking
-        // for messages to be sent to us whenever any bit changes state.
-        ConnectMessage *pConnectMessage = (ConnectMessage *)message;
-        Int32Message *psend;
-        LIDEBUG(5,"LiIpUnidig::connectIO, enter, record=%s, status=%d\n",
-                            pr->name, pConnectMessage->status);
-
-        if (pConnectMessage->status != connectYes) goto finish;
-        psend = new Int32Message;
-        psend->cmd = cmdStartMonitor;
-        sendReply(psend);
-
-    finish:
-        DevMpf::connectIO(pr, message);  // Call the base class method
-}
 
 
 /*************** BI SUPPORT ***************/
@@ -275,8 +254,9 @@ long BoIpUnidig::dev_init(void* v)
 {
         BODEBUG(2,"devBoIpUnidig::dev_init(v)\n");
         boRecord *bo = (boRecord*)v;
-        new BoIpUnidig((dbCommon*)bo,&(bo->out));
-        return(0);
+        BoIpUnidig* pBoIpUnidig = new BoIpUnidig((dbCommon*)bo,&(bo->out));
+        pBoIpUnidig->bind();
+        return(MPF_NoConvert);
 }
 
 BoIpUnidig::BoIpUnidig(dbCommon* pr,DBLINK* l) : DevMpf(pr,l,false)
