@@ -22,7 +22,6 @@ of this distribution.
 */
 
 #include <stdlib.h>
-#include <stddef.h>
 #include <string.h>
 #include <stdio.h>
 
@@ -32,6 +31,7 @@ of this distribution.
 
 #include "errlog.h"
 #include "epicsTypes.h"
+#include "gpHash.h"
 
 #include "Reboot.h"
 #include "ipUnidig.h"
@@ -73,9 +73,10 @@ extern "C"
 volatile int IpUnidigDebug = 0;
 }
 
+static void *ipUnidigHash;
 
 IpUnidig * IpUnidig::init(
-    ushort_t carrier, ushort_t slot,
+    const char *name, ushort_t carrier, ushort_t slot,
     int intVec, int risingMask, int fallingMask, int maxClients)
  {
     if (ipmCheck(carrier, slot)) {
@@ -129,7 +130,19 @@ IpUnidig * IpUnidig::init(
     }
     IpUnidig *pIpUnidig = new IpUnidig(carrier, slot, manufacturer, model, 
                                  intVec, risingMask, fallingMask, maxClients);
+
+    if (ipUnidigHash == NULL) gphInitPvt(&ipUnidigHash, 256);
+    GPHENTRY *hashEntry = gphAdd(ipUnidigHash, name, NULL);
+    hashEntry->userPvt = pIpUnidig;
+
     return(pIpUnidig);
+}
+
+IpUnidig* IpUnidig::findModule(const char *name)
+{
+    GPHENTRY *hashEntry = gphFind(ipUnidigHash, name, NULL);
+    if (hashEntry == NULL) return (NULL);
+    return((IpUnidig *)hashEntry->userPvt);
 }
 
 IpUnidig::IpUnidig(ushort_t carrier, ushort_t slot, 

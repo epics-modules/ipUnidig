@@ -40,6 +40,8 @@ of this distribution.
 #include <epicsThread.h>
 #include <epicsEvent.h>
 #include <epicsTypes.h>
+#include <iocsh.h>
+#include <epicsExport.h>
 
 #include "Message.h"
 #include "Int32Message.h"
@@ -58,6 +60,7 @@ extern "C"
 #endif
 volatile int IpUnidigServerDebug = 0;
 }
+
 class IpUnidigOutputServer {
 public:
     IpUnidig *pIpUnidig;
@@ -88,12 +91,12 @@ private:
 };
 
 
-extern "C" IpUnidig* initIpUnidig(
+extern "C" int initIpUnidig(
     const char *serverName, ushort_t carrier, ushort_t slot,
     int queueSize, int msecPoll, 
     int intVec, int risingMask, int fallingMask, int biMask, int maxClients)
 {
-    IpUnidig *pIpUnidig = IpUnidig::init(carrier, slot,
+    IpUnidig *pIpUnidig = IpUnidig::init(serverName, carrier, slot,
                           intVec, risingMask, fallingMask, maxClients);
     if(!pIpUnidig) return(0);
 
@@ -118,7 +121,7 @@ extern "C" IpUnidig* initIpUnidig(
         errlogPrintf("%s IpUnidig Output Server ThreadCreate Failure\n",
             serverName);
     
-    return(pIpUnidig);
+    return(0);
 }
 
 
@@ -228,7 +231,8 @@ void IpUnidigInputServer::ipUnidigInputServer(IpUnidigInputServer *pServer)
             if(pServer->preceive==0) break;
             int sendStatus = 0;
             // Wait for an interrupt or for the poll time, whichever comes first
-            if (!epicsEventWaitWithTimeout(pServer->eventID, pServer->pollTime)) {
+            if (epicsEventWaitWithTimeout(pServer->eventID, pServer->pollTime) !=
+                epicsEventWaitOK) {
                // The wait timed out, so there was no interrupt, so we need
                // to read the bits.  If there was an interrupt the bits got
                // passed to the callback.
@@ -264,3 +268,38 @@ void IpUnidigInputServer:: callBack(void *v, unsigned int bits)
    t->bits = bits;
    epicsEventSignal(t->eventID);
 }
+
+static const iocshArg initArg0 = { "Server name",iocshArgString};
+static const iocshArg initArg1 = { "Carrier",iocshArgInt};
+static const iocshArg initArg2 = { "Slot",iocshArgInt};
+static const iocshArg initArg3 = { "queueSize",iocshArgInt};
+static const iocshArg initArg4 = { "msecPoll",iocshArgInt};
+static const iocshArg initArg5 = { "intVec",iocshArgInt};
+static const iocshArg initArg6 = { "risingMask",iocshArgString};
+static const iocshArg initArg7 = { "fallingMask",iocshArgInt};
+static const iocshArg initArg8 = { "biMask",iocshArgInt};
+static const iocshArg initArg9 = { "maxClients",iocshArgInt};
+static const iocshArg * const initArgs[10] = {&initArg0,
+                                              &initArg1,
+                                              &initArg2,
+                                              &initArg3,
+                                              &initArg4,
+                                              &initArg5,
+                                              &initArg6,
+                                              &initArg7,
+                                              &initArg8,
+                                              &initArg9};
+static const iocshFuncDef initFuncDef = {"initIpUnidig",10,initArgs};
+static void initCallFunc(const iocshArgBuf *args)
+{
+    initIpUnidig(args[0].sval, (int) args[1].sval, (int) args[2].sval,
+                (int) args[3].sval, (int) args[4].sval, (int) args[5].sval,
+                (int) args[6].sval, (int) args[7].sval, (int) args[8].sval,
+                (int) args[9].sval);
+}
+void ipUnidigRegister(void)
+{
+    iocshRegister(&initFuncDef,initCallFunc);
+}
+
+epicsExportRegistrar(ipUnidigRegister);

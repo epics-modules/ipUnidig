@@ -49,7 +49,7 @@
 #include "Int32Message.h"
 #include "DevMpf.h"
 #include "ipUnidig.h"
-
+#include "epicsExport.h"
 
 // longin record device support
 
@@ -158,6 +158,7 @@ extern "C" {
 MPF_DSET devBiIpUnidig =
 {5,NULL,NULL,bi_init_record,bi_ioint_info,bi_read,NULL};
 };
+epicsExportAddress(MPF_DSET, devBiIpUnidig);
 
 
 static long bi_init_record(void* v)

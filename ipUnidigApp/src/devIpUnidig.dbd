@@ -2,3 +2,5 @@
 device(bo,VME_IO, devBoIpUnidig,"Greenspring IP-Unidig")
 device(longin,VME_IO, devLiIpUnidig,"Greenspring IP-Unidig")
 device(bi,VME_IO,devBiIpUnidig,"Greenspring IP-Unidig")
+registrar(ipUnidigRegister)
+

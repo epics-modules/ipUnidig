@@ -38,7 +38,7 @@ class IpUnidig
 {
 public:
     static IpUnidig * init(
-        ushort_t carrier, ushort_t slot,
+        const char *name, ushort_t carrier, ushort_t slot,
         int intVec, int risingMask, int fallingMask, int maxClients);
     IpUnidig(ushort_t carrier, ushort_t slot, unsigned char manufacturer, 
              unsigned char model, int intVec, int risingMask, 
@@ -51,6 +51,7 @@ public:
     void setRisingMaskBits(epicsUInt32 mask);
     void clearRisingMaskBits(epicsUInt32 mask);
     epicsUInt32 getFallingMask();
+    static IpUnidig *findModule(const char *name);
     void setFallingMaskBits(epicsUInt32 mask);
     void clearFallingMaskBits(epicsUInt32 mask);
     int registerCallback(IpUnidigCallback callback, void *pvt, int mask);
