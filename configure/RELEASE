@@ -11,11 +11,11 @@ TEMPLATE_TOP=$(EPICS_BASE)/templates/makeBaseApp/top
 #If using the sequencer, point SNCSEQ at its top directory:
 #SNCSEQ=$(EPICS_BASE)/../modules/soft/seq
 
-# EPICS_BASE usually appears last so other apps can override stuff:
-EPICS_BASE=/net/beams/export/local/epics/baseR3.14.5
+ASYN=/corvette/home/epics/synApps5-1beta/asyn/3-3beta
+IPAC=/corvette/home/epics/synApps5-1beta/ipac/2-7a
 
-MPF=/home/oxygen/MOONEY/epics/synApps_5_0/support/mpf/2-4-2
-IPAC=/home/oxygen/MOONEY/epics/synApps_5_0/support/ipac/2-7_cvs
+# EPICS_BASE usually appears last so other apps can override stuff:
+EPICS_BASE=/corvette/usr/local/epics/base-3.14.6
 
 #Capfast users may need the following definitions
 #CAPFAST_TEMPLATES=
