@@ -1,6 +1,6 @@
 grecord(bo,"$(P)$(R)Bo$(BIT)")
 {
-        field(DTYP,"asyn UInt32Digital")
+        field(DTYP,"asynUInt32Digital")
         field(OUT,"@asyn($(PORT) $(BIT))")
         field(VAL, "1")
         field(ZNAM, "Low")
