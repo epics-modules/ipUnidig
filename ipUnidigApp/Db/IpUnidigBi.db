@@ -1,4 +1,4 @@
-grecord(bi,"$(P)$(R)Bi$(BIT)")
+grecord(bi,"$(P)$(R)")
 {
         field(PINI, "YES")
         field(DTYP,"asynUInt32Digital")

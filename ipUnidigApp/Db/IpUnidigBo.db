@@ -1,4 +1,4 @@
-grecord(bo,"$(P)$(R)Bo$(BIT)")
+grecord(bo,"$(P)$(R)")
 {
         field(DTYP,"asynUInt32Digital")
         field(OUT,"@asynMask($(PORT) 0 $(MASK))")

@@ -1,4 +1,4 @@
-grecord(longout,"$(P)$(R)Lo")
+grecord(longout,"$(P)$(R)")
 {
         field(DTYP,"asynUInt32Digital")
         field(OUT,"@asynMask($(PORT) 0 0xffffffff)")

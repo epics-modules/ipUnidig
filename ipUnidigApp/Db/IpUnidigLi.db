@@ -1,4 +1,4 @@
-grecord(longin,"$(P)$(R)Li")
+grecord(longin,"$(P)$(R)")
 {
         field(PINI, "YES")
         field(DTYP,"asynUInt32Digital")
