@@ -11,7 +11,8 @@
                      IpUnidig::IpUnidig to support this.
     23-Apr-2003 MLR  Added functions for changing the rising and falling masks
     27-May-2003 MLR  Converted to EPICS R3.14.
-    29-Jun-2004 MLR  Coverted from MPF to asyn, and from C++ to C
+    29-Jun-2004 MLR  Converted from MPF to asyn, and from C++ to C
+    28-Jul-2004 MLR  Converted to generic asynUInt32Digital interfaces
 */
 
 #include <stdlib.h>
@@ -36,7 +37,8 @@
 
 /*#include "Reboot.h" */
 #include "asynDriver.h"
-#include "asynInt32.h"
+#include "asynUInt32Digital.h"
+#include "asynUInt32DigitalCallback.h"
 #include "asynIpUnidig.h"
 
 
@@ -73,7 +75,7 @@ typedef struct {
    ELLNODE *next;
    ELLNODE *previous;
    asynUser *pasynUser;
-   ipUnidigCallback callback;
+   asynUInt32DigitalCallbackCallback callback;
    void *pvt;
    int mask;
 } ipUnidigClient;
@@ -101,6 +103,7 @@ typedef struct {
 
 typedef struct {
     epicsUInt32 bits;
+    epicsUInt32 interruptMask;
 } ipUnidigMessage;
 
 typedef struct {
@@ -114,57 +117,51 @@ typedef struct {
     epicsUInt32 risingMask;
     epicsUInt32 fallingMask;
     epicsUInt32 polarityMask;
+    epicsUInt32 oldBits;
     ipUnidigRegisters regs;
     ELLLIST clientList;
     epicsMutexId clientLock;
-    epicsUInt32 oldBits;
     int forceCallback;
     double pollTime;
     epicsMessageQueueId msgQId;
     int messagesSent;
     int messagesFailed;
     asynInterface common;
+    asynInterface uint32D;
+    asynInterface uint32DCb;
     asynInterface ipUnidig;
-    asynInterface int32;
 } drvIpUnidigPvt;
 
 /* These functions are in the asynCommon interface */
 static void report                 (void *drvPvt, FILE *fp, int details);
 static asynStatus connect          (void *drvPvt, asynUser *pasynUser);
 static asynStatus disconnect       (void *drvPvt, asynUser *pasynUser);
-/* These functions are in the asynInt32 interface */
+/* These functions are in the asynUInt32Digital interface */
 static asynStatus write            (void *drvPvt, asynUser *pasynUser,
-                                    epicsInt32 value);
+                                    epicsUInt32 value, epicsUInt32 mask);
 static asynStatus read             (void *drvPvt, asynUser *pasynUser,
-                                    epicsInt32 *value);
-/* These functions are in the asynIpUnidig interface */
-static asynStatus setBits          (void *drvPvt, asynUser *pasynUser,
-                                    epicsUInt32 mask);
-static asynStatus clearBits        (void *drvPvt, asynUser *pasynUser,
-                                    epicsUInt32 mask);
-static asynStatus setDAC           (void *drvPvt, asynUser *pasynUser,
-                                    epicsUInt16 value);
-static epicsUInt32 getRisingMask   (void *drvPvt, asynUser *pasynUser);
-static void setRisingMaskBits      (void *drvPvt, asynUser *pasynUser,
-                                    epicsUInt32 mask);
-static void clearRisingMaskBits    (void *drvPvt, asynUser *pasynUser,
-                                    epicsUInt32 mask);
-static epicsUInt32 getFallingMask  (void *drvPvt, asynUser *pasynUser);
-static void setFallingMaskBits     (void *drvPvt, asynUser *pasynUser,
-                                    epicsUInt32 mask);
-static void clearFallingMaskBits   (void *drvPvt, asynUser *pasynUser,
-                                    epicsUInt32 mask);
+                                    epicsUInt32 *value, epicsUInt32 mask);
+
+/* These functions are in the asynUInt32Digital interface */
 static asynStatus registerCallback (void *drvPvt, asynUser *pasynUser,
-                                    ipUnidigCallback callback, 
+                                    asynUInt32DigitalCallbackCallback callback,
                                     epicsUInt32 mask, void *pvt);
 static asynStatus cancelCallback   (void *drvPvt, asynUser *pasynUser,
-                                    ipUnidigCallback callback, 
+                                    asynUInt32DigitalCallbackCallback callback,
                                     epicsUInt32 mask, void *pvt);
+static asynStatus setInterruptMask (void *drvPvt, asynUser *pasynUser,
+                                    epicsUInt32 mask, interruptReason reason);
+static asynStatus getInterruptMask (void *drvPvt, asynUser *pasynUser,
+                                    epicsUInt32 *mask, interruptReason reason);
+
+/* These functions are in the asynIpUnidig interface */
+static asynStatus setDAC           (void *drvPvt, asynUser *pasynUser,
+                                    epicsUInt16 value);
 /* These are private functions */
 static void pollerThread            (drvIpUnidigPvt *pPvt);
-static void intFunc                 (void*); /* Interrupt function */
+static void intFunc                 (void *); /* Interrupt function */
 static void rebootCallback          (void *);
-static void writeIntEnableRegs      ();
+static void writeIntEnableRegs      (drvIpUnidigPvt *pPvt);
 
 /* asynCommon methods */
 static const struct asynCommon ipUnidigCommon = {
@@ -173,25 +170,23 @@ static const struct asynCommon ipUnidigCommon = {
     disconnect
 };
 
-/* asynInt32 methods */
-static const struct asynInt32 ipUnidigInt32 = {
+/* asynUInt32Digital methods */
+static const struct asynUInt32Digital ipUnidigUInt32D = {
     write,
     read
 };
 
+/* asynUInt32DigitalCallback methods */
+static const struct asynUInt32DigitalCallback ipUnidigUInt32DCb = {
+    registerCallback,
+    cancelCallback,
+    setInterruptMask,
+    getInterruptMask
+};
+
 /* asynIpUnidig methods */
 static const asynIpUnidig drvIpUnidig = {
-    setBits,
-    clearBits,
-    setDAC,
-    getRisingMask,
-    setRisingMaskBits,
-    clearRisingMaskBits,
-    getFallingMask,
-    setFallingMaskBits,
-    clearFallingMaskBits,
-    registerCallback,
-    cancelCallback
+    setDAC
 };
 
 
@@ -205,7 +200,6 @@ int initIpUnidig(const char *portName, ushort_t carrier, ushort_t slot,
     unsigned char model;
     epicsUInt16 *base;
     int status;
-    int priority=0;
 
     pPvt = callocMustSucceed(1, sizeof(*pPvt), "initIpUnidig");
     ellInit(&pPvt->clientList);
@@ -277,17 +271,20 @@ int initIpUnidig(const char *portName, ushort_t carrier, ushort_t slot,
     pPvt->common.interfaceType = asynCommonType;
     pPvt->common.pinterface  = (void *)&ipUnidigCommon;
     pPvt->common.drvPvt = pPvt;
-    pPvt->int32.interfaceType = asynInt32Type;
-    pPvt->int32.pinterface  = (void *)&ipUnidigInt32;
-    pPvt->int32.drvPvt = pPvt;
+    pPvt->uint32D.interfaceType = asynUInt32DigitalType;
+    pPvt->uint32D.pinterface  = (void *)&ipUnidigUInt32D;
+    pPvt->uint32D.drvPvt = pPvt;
+    pPvt->uint32DCb.interfaceType = asynUInt32DigitalCallbackType;
+    pPvt->uint32DCb.pinterface  = (void *)&ipUnidigUInt32DCb;
+    pPvt->uint32DCb.drvPvt = pPvt;
     pPvt->ipUnidig.interfaceType = asynIpUnidigType;
     pPvt->ipUnidig.pinterface  = (void *)&drvIpUnidig;
     pPvt->ipUnidig.drvPvt = pPvt;
     status = pasynManager->registerPort(pPvt->portName,
-                                   0, /*not multiDevice*/
-                                   1,
-                                   priority,
-                                   0);
+                                        0, /* not multiDevice, can't block */
+                                        1, /* autoconnect */
+                                        0, /* medium priority */
+                                        0); /* default stack size */
     if (status != asynSuccess) {
         errlogPrintf("initIpUnidig ERROR: Can't register port\n");
         return -1;
@@ -297,9 +294,14 @@ int initIpUnidig(const char *portName, ushort_t carrier, ushort_t slot,
         errlogPrintf("initIpUnidig ERROR: Can't register common.\n");
         return -1;
     }
-    status = pasynManager->registerInterface(pPvt->portName,&pPvt->int32);
+    status = pasynManager->registerInterface(pPvt->portName,&pPvt->uint32D);
     if (status != asynSuccess) {
-        errlogPrintf("initIpUnidig ERROR: Can't register int32.\n");
+        errlogPrintf("initIpUnidig ERROR: Can't register UInt32Digital.\n");
+        return -1;
+    }
+    status = pasynManager->registerInterface(pPvt->portName,&pPvt->uint32DCb);
+    if (status != asynSuccess) {
+        errlogPrintf("initIpUnidig ERROR: Can't register UInt32DigitalCallback.\n");
         return -1;
     }
     status = pasynManager->registerInterface(pPvt->portName,&pPvt->ipUnidig);
@@ -427,7 +429,8 @@ int initIpUnidig(const char *portName, ushort_t carrier, ushort_t slot,
 
 
 
-static asynStatus read(void *drvPvt, asynUser *pasynUser, epicsInt32 *value)
+static asynStatus read(void *drvPvt, asynUser *pasynUser, epicsUInt32 *value,
+                       epicsUInt32 mask)
 {
     drvIpUnidigPvt *pPvt = (drvIpUnidigPvt *)drvPvt;
     ipUnidigRegisters r = pPvt->regs;
@@ -436,12 +439,14 @@ static asynStatus read(void *drvPvt, asynUser *pasynUser, epicsInt32 *value)
     *value = 0;
     if (r.inputRegisterLow)  *value  = (epicsUInt32) *r.inputRegisterLow;
     if (r.inputRegisterHigh) *value |= (epicsUInt32) (*r.inputRegisterHigh << 16);
+    *value &= mask;
     asynPrint(pasynUser, ASYN_TRACEIO_DRIVER,
               "drvIpUnidig::read, *value=%x\n", *value);
     return(asynSuccess);
 }
 
-static asynStatus write(void *drvPvt, asynUser *pasynUser, epicsInt32 value)
+static asynStatus write(void *drvPvt, asynUser *pasynUser, epicsUInt32 value,
+                        epicsUInt32 mask)
 {
     drvIpUnidigPvt *pPvt = (drvIpUnidigPvt *)drvPvt;
     ipUnidigRegisters r = pPvt->regs;
@@ -450,59 +455,26 @@ static asynStatus write(void *drvPvt, asynUser *pasynUser, epicsInt32 value)
     if(pPvt->rebooting) taskSuspend(0);
     if ((pPvt->manufacturer == GREENSPRING_ID)  &&
         ((pPvt->model == UNIDIG_D) || (pPvt->model == UNIDIG_I_D))) {
-         *r.outputEnableLow  |= (epicsUInt16) 0xffff;
-         *r.outputEnableHigh |= (epicsUInt16) 0xffff;
+         *r.outputEnableLow  |= (epicsUInt16) mask;
+         *r.outputEnableHigh |= (epicsUInt16) (mask >> 16);
     }
-    if (r.outputRegisterLow)  *r.outputRegisterLow  = (epicsUInt16) value;
-    if (r.outputRegisterHigh) *r.outputRegisterHigh = (epicsUInt16) (value >> 16);
+    /* Set any bits that are set in the value and the mask */
+    if (r.outputRegisterLow)  *r.outputRegisterLow  |= 
+                                          (epicsUInt16) (value & mask);
+    if (r.outputRegisterHigh) *r.outputRegisterHigh |= 
+                                          (epicsUInt16) ((value & mask) >> 16);
+    /* Clear bits that are clear in the value and set in the mask */
+    if (r.outputRegisterLow)  *r.outputRegisterLow  &= 
+                                          (epicsUInt16) (value | ~mask);
+    if (r.outputRegisterHigh) *r.outputRegisterHigh &= 
+                                          (epicsUInt16) ((value | ~mask) >> 16);
     asynPrint(pasynUser, ASYN_TRACEIO_DRIVER,
-              "drvIpUnidig::write, value=%x\n", value);
+              "drvIpUnidig::write, value=%x, mask=%x\n",
+              value, mask);
     return(asynSuccess);
 }
 
 
-static asynStatus setBits(void *drvPvt, asynUser *pasynUser, epicsUInt32 mask)
-{
-    drvIpUnidigPvt *pPvt = (drvIpUnidigPvt *)drvPvt;
-    ipUnidigRegisters r = pPvt->regs;
-
-    /* For the IP-Unidig differential output models, must enable outputs
-     * Don't do this for all outputs in constructor, since then nothing could
-     * be an input */
-    if(pPvt->rebooting) taskSuspend(0);
-    if ((pPvt->manufacturer == GREENSPRING_ID)  &&
-        ((pPvt->model == UNIDIG_D) || (pPvt->model == UNIDIG_I_D))) {
-         *r.outputEnableLow  |= (epicsUInt16) mask;
-         *r.outputEnableHigh |= (epicsUInt16) (mask >> 16);
-    }
-    if (r.outputRegisterLow)  *r.outputRegisterLow  |= (epicsUInt16) mask;
-    if (r.outputRegisterHigh) *r.outputRegisterHigh |= (epicsUInt16) (mask >> 16);
-    asynPrint(pasynUser, ASYN_TRACEIO_DRIVER,
-              "drvIpUnidig::setBits, mask=%x\n", mask);
-    return(asynSuccess);
-}
-
-static asynStatus clearBits(void *drvPvt, asynUser *pasynUser, epicsUInt32 mask)
-{
-    drvIpUnidigPvt *pPvt = (drvIpUnidigPvt *)drvPvt;
-    ipUnidigRegisters r = pPvt->regs;
-
-    /* For the IP-Unidig differential output models, must enable outputs
-     * Don't do this for all outputs in constructor, since then nothing could
-     * be an input */
-    if(pPvt->rebooting) taskSuspend(0);
-    if ((pPvt->manufacturer == GREENSPRING_ID)  &&
-        ((pPvt->model == UNIDIG_D) || (pPvt->model == UNIDIG_I_D))) {
-         *r.outputEnableLow  |= (epicsUInt16) mask;
-         *r.outputEnableHigh |= (epicsUInt16) (mask >> 16);
-    }
-    if (r.outputRegisterLow)  *r.outputRegisterLow  &= (epicsUInt16) ~mask;
-    if (r.outputRegisterHigh) *r.outputRegisterHigh &= (epicsUInt16) (~mask >> 16);
-    asynPrint(pasynUser, ASYN_TRACEIO_DRIVER,
-              "drvIpUnidig::clearBits, mask=%x\n", mask);
-    return(asynSuccess);
-}
-
 static asynStatus setDAC(void *drvPvt, asynUser *pasynUser, epicsUInt16 value)
 {
     drvIpUnidigPvt *pPvt = (drvIpUnidigPvt *)drvPvt;
@@ -521,54 +493,44 @@ static asynStatus setDAC(void *drvPvt, asynUser *pasynUser, epicsUInt16 value)
     return(asynSuccess); 
 }
 
-static epicsUInt32 getRisingMask(void *drvPvt, asynUser *pasynUser)
+static asynStatus setInterruptMask(void *drvPvt, asynUser *pasynUser,
+                                    epicsUInt32 mask, interruptReason reason)
 {
     drvIpUnidigPvt *pPvt = (drvIpUnidigPvt *)drvPvt;
 
-    return(pPvt->risingMask);
-}
-
-static void setRisingMaskBits(void *drvPvt, asynUser *pasynUser, 
-                              epicsUInt32 mask)
-{
-    drvIpUnidigPvt *pPvt = (drvIpUnidigPvt *)drvPvt;
-
-    pPvt->risingMask |= mask;
+    switch (reason) {
+    case interruptOnZeroToOne:
+        pPvt->risingMask = mask;
+        break;
+    case interruptOnOneToZero:
+        pPvt->fallingMask = mask;
+        break;
+    case interruptOnBoth:
+        pPvt->risingMask = mask;
+        pPvt->fallingMask = mask;
+        break;
+    }
     writeIntEnableRegs(pPvt);
+    return(asynSuccess);
 }
 
-static void clearRisingMaskBits(void *drvPvt, asynUser *pasynUser, 
-                                epicsUInt32 mask)
+static asynStatus getInterruptMask(void *drvPvt, asynUser *pasynUser,
+                                    epicsUInt32 *mask, interruptReason reason)
 {
     drvIpUnidigPvt *pPvt = (drvIpUnidigPvt *)drvPvt;
 
-    pPvt->risingMask &= ~mask;
-    writeIntEnableRegs(pPvt);
-}
-
-static epicsUInt32 getFallingMask(void *drvPvt, asynUser *pasynUser)
-{
-    drvIpUnidigPvt *pPvt = (drvIpUnidigPvt *)drvPvt;
-
-    return(pPvt->fallingMask);
-}
-
-static void setFallingMaskBits(void *drvPvt, asynUser *pasynUser, 
-                               epicsUInt32 mask)
-{
-    drvIpUnidigPvt *pPvt = (drvIpUnidigPvt *)drvPvt;
-
-    pPvt->fallingMask |= mask;
-    writeIntEnableRegs(pPvt);
-}
-
-static void clearFallingMaskBits(void *drvPvt, asynUser *pasynUser, 
-                                 epicsUInt32 mask)
-{
-    drvIpUnidigPvt *pPvt = (drvIpUnidigPvt *)drvPvt;
-
-    pPvt->fallingMask &= ~mask;
-    writeIntEnableRegs(pPvt);
+    switch (reason) {
+    case interruptOnZeroToOne:
+        *mask = pPvt->risingMask;
+        break;
+    case interruptOnOneToZero:
+        *mask = pPvt->fallingMask;
+        break;
+    case interruptOnBoth:
+        *mask = pPvt->risingMask | pPvt->fallingMask;
+        break;
+    }
+    return(asynSuccess);
 }
 
 
@@ -588,6 +550,7 @@ static void intFunc(void *drvPvt)
     if (r.inputRegisterLow)  inputs = (epicsUInt32) *r.inputRegisterLow;
     if (r.inputRegisterHigh) inputs |= (epicsUInt32) (*r.inputRegisterHigh << 16);
     msg.bits = inputs;
+    msg.interruptMask = pendingMask;
     if (epicsMessageQueueTrySend(pPvt->msgQId, &msg, sizeof(msg)) == 0)
         pPvt->messagesSent++;
     else
@@ -606,9 +569,9 @@ static void intFunc(void *drvPvt)
 }
 
 
-static asynStatus registerCallback (void *drvPvt, asynUser *pasynUser,
-                                    ipUnidigCallback callback, 
-                                    epicsUInt32 mask, void *pvt)
+static asynStatus registerCallback(void *drvPvt, asynUser *pasynUser,
+                                   asynUInt32DigitalCallbackCallback callback,
+                                   epicsUInt32 mask, void *pvt)
 {
     /* Registers a callback to be called */
     drvIpUnidigPvt *pPvt = (drvIpUnidigPvt *)drvPvt;
@@ -630,9 +593,9 @@ static asynStatus registerCallback (void *drvPvt, asynUser *pasynUser,
     return(asynSuccess);
 }
 
-static asynStatus cancelCallback (void *drvPvt, asynUser *pasynUser,
-                                    ipUnidigCallback callback,
-                                    epicsUInt32 mask, void *pvt)
+static asynStatus cancelCallback(void *drvPvt, asynUser *pasynUser,
+                                 asynUInt32DigitalCallbackCallback callback,
+                                 epicsUInt32 mask, void *pvt)
 {
     /* Cancels a callback registered above */
     drvIpUnidigPvt *pPvt = (drvIpUnidigPvt *)drvPvt;
@@ -666,7 +629,7 @@ static void pollerThread(drvIpUnidigPvt *pPvt)
      * the ipUnidig have changed then it does callbacks to all clients that
      * have registered with registerDevCallback */
     ipUnidigClient *pClient;
-    epicsUInt32 newBits, changedBits;
+    epicsUInt32 newBits, changedBits, interruptMask=0;
     ipUnidigMessage msg;
 
     while(1) {      
@@ -677,25 +640,29 @@ static void pollerThread(drvIpUnidigPvt *pPvt)
             /* The wait timed out, so there was no interrupt, so we need
              * to read the bits.  If there was an interrupt the bits got
              * set in the interrupt routines */
-            read(pPvt, pPvt->pasynUser, &newBits);
+            read(pPvt, pPvt->pasynUser, &newBits, 0xffffffff);
         } else {
             newBits = msg.bits;
+            interruptMask = msg.interruptMask;
             asynPrint(pPvt->pasynUser, ASYN_TRACE_FLOW,
                       "drvIpUnidig::pollerThread, got interrupt\n");
         }
         asynPrint(pPvt->pasynUser, ASYN_TRACEIO_DRIVER,
                   "drvIpUnidig::pollerThread, bits=%x\n", newBits);
 
+        /* We detect change both from interruptMask (which only works for
+         * interrupts) and changedBits, which works for polling */
         changedBits = newBits ^ pPvt->oldBits;
-        if (pPvt->forceCallback) changedBits = 0xffffff;
-        if (changedBits) {
+        interruptMask = interruptMask | changedBits;
+        if (pPvt->forceCallback) interruptMask = 0xffffff;
+        if (interruptMask) {
             pPvt->forceCallback = 0;
             pPvt->oldBits = newBits;
             /* Call the callback routines which have registered */
             epicsMutexLock(pPvt->clientLock);
             pClient = (ipUnidigClient *)ellFirst(&pPvt->clientList);
             while(pClient) {
-                if (pClient->mask & changedBits) {
+                if (pClient->mask & interruptMask) {
                     asynPrint(pPvt->pasynUser, ASYN_TRACE_FLOW,
                               "drvIpUnidig::pollerThread, calling client %p"
                               " mask=%x, callback=%p\n",
@@ -737,15 +704,31 @@ static void rebootCallback(void *drvPvt)
 static void report(void *drvPvt, FILE *fp, int details)
 {
     drvIpUnidigPvt *pPvt = (drvIpUnidigPvt *)drvPvt;
+    ipUnidigClient *pClient;
+    ipUnidigRegisters r = pPvt->regs;
+    epicsUInt32 intEnableRegister, intPolarityRegister;
 
-    assert(pPvt);
     fprintf(fp, "drvIpUnidig %s: connected at base address %p\n",
             pPvt->portName, pPvt->baseAddress);
     if (details >= 1) {
+        intEnableRegister = *r.intEnableRegisterLow;
+        intEnableRegister |= (*r.intEnableRegisterHigh << 16);
+        intPolarityRegister = *r.intPolarityRegisterLow;
+        intPolarityRegister |= (*r.intPolarityRegisterHigh << 16);
+
         fprintf(fp, "  risingMask=%x\n", pPvt->risingMask);
         fprintf(fp, "  fallingMask=%x\n", pPvt->fallingMask);
+        fprintf(fp, "  intEnableRegister=%x\n", intEnableRegister);
+        fprintf(fp, "  intPolarityRegister=%x\n", intPolarityRegister);
         fprintf(fp, "  messages sent OK=%d; send failed (queue full)=%d\n",
                 pPvt->messagesSent, pPvt->messagesFailed);
+        pClient = (ipUnidigClient *)ellFirst(&pPvt->clientList);
+        while (pClient) {
+            fprintf(fp, "  client address=%p, mask=%x\n",
+                    pClient->callback, pClient->mask);
+            pClient = (ipUnidigClient *)ellNext(pClient);
+        }
+            
     }
 }
 
