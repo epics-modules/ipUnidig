@@ -159,7 +159,7 @@ extern "C" {
 MPF_DSET devBiIpUnidig =
 {5,NULL,NULL,bi_init_record,bi_ioint_info,bi_read,NULL};
 };
-epicsExportAddress(MPF_DSET, devBiIpUnidig);
+epicsExportAddress(dset, devBiIpUnidig);
 
 
 static long bi_init_record(void* v)
