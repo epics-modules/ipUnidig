@@ -12,7 +12,7 @@ of this distribution.
   
     Modifications:
     1-Apr-2003  MLR  Changes to support interrupts
-
+   23-Apr-2003  MLR  Added functions for changing the rising and falling masks
 */
 
 #ifndef IpUnidigH
@@ -48,11 +48,18 @@ public:
     int clearBits(UINT32 mask);
     int readBits(UINT32 *value);
     int setDAC(UINT16 value);
+    UINT32 getRisingMask();
+    void setRisingMaskBits(UINT32 mask);
+    void clearRisingMaskBits(UINT32 mask);
+    UINT32 getFallingMask();
+    void setFallingMaskBits(UINT32 mask);
+    void clearFallingMaskBits(UINT32 mask);
     int registerCallback(IpUnidigCallback callback, void *pvt, int mask);
 private:
     IpUnidig(IndustryPackModule *pIndustryPackModule);
     static void intFunc(void*); // Interrupt function
     static void rebootCallback(void *);
+    void writeIntEnableRegs();
     IndustryPackModule *pIPM;
     unsigned char manufacturer;
     unsigned char model;
@@ -62,7 +69,6 @@ private:
     int numClients;
     IpUnidigClient *client;
     FP_CONTEXT *pFpContext;
-    IpUnidigCallback *clientCallback;
     UINT32 risingMask;
     UINT32 fallingMask;
     UINT32 polarityMask;
