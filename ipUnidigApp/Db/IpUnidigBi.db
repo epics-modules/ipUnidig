@@ -2,7 +2,7 @@ grecord(bi,"$(P)$(R)Bi$(BIT)")
 {
         field(PINI, "YES")
         field(DTYP,"asynUInt32Digital")
-        field(INP,"@asyn($(PORT) $(BIT))")
+        field(INP,"@asynMask($(PORT) 0 $(MASK))")
         field(SCAN, "$(SCAN)")
         field(ZNAM, "Low")
         field(ONAM, "High")
