@@ -11,7 +11,7 @@ DBD += ipUnidigSupport.dbd
 ipUnidig_SRCS += drvIpUnidig.c
 ipUnidig_SRCS += devIpUnidig.cc
 
-INC += drvIpUnidig.h
+INC += asynIpUnidig.h
 ipUnidig_LIBS += $(EPICS_BASE_IOC_LIBS)
 #=============================
 
