@@ -1,5 +1,5 @@
 grecord(longout,"$(P)$(R)Lo")
 {
-        field(DTYP,"Greenspring IP-Unidig")
+        field(DTYP,"asyn UInt32Digital")
         field(OUT,"#C0 S0 @$(PORT)")
 }

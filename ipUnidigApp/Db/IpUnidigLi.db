@@ -1,7 +1,7 @@
 grecord(longin,"$(P)$(R)Li")
 {
         field(PINI, "YES")
-        field(DTYP,"Greenspring IP-Unidig")
+        field(DTYP,"asyn UInt32Digital")
         field(INP,"#C0 S0 @$(PORT)")
         field(SCAN, "$(SCAN)")
 }
