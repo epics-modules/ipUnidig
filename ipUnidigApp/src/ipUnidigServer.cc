@@ -10,6 +10,8 @@ of this distribution.
     Date: 9/19/99
     Current Author: Mark Rivers
 
+    Modification: July 31, 2001  MLR Minor change to avoid compiler warning
+
     This is the code for input and output servers using the Greensprings 
     ipUnidig series of digital I/O IP modules.
 
@@ -30,6 +32,7 @@ of this distribution.
 #include <string.h>
 #include <stdio.h>
 #include <taskLib.h>
+#include <sysLib.h>
 
 #include "Message.h"
 #include "Int32Message.h"
