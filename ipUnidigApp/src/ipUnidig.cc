@@ -17,7 +17,6 @@ of this distribution.
     1-Apr-2003  MLR  Added support for interrupts on the IP-Unidig-I series.
                      Added additional arguments to IpUnidig::init and
                      IpUnidig::IpUnidig to support this.
-    23-Apr-2003 MLR  Added functions for changing the rising and falling masks
 */
 
 #include <vxWorks.h>
@@ -215,11 +214,13 @@ IpUnidig::IpUnidig(IndustryPackModule *pIndustryPackModule,
     this->risingMask = risingMask;
     this->fallingMask = fallingMask;
     this->polarityMask = risingMask;
-    // If the interrupt vector is zero, don't bother with interrupts, 
-    // since the user probably didn't pass this
-    // parameter to IpUnidig::init().  This is an optional parameter added
+    // If the interrupt vector is zero, or if both masks are zero don't
+    // bother with interrupts, since the user probably didn't pass these
+    // parameters to IpUnidig::init().  These are optional parameters added
     // after initial release.
-    if (supportsInterrupts && (intVec !=0)) {
+    if (supportsInterrupts && 
+        (intVec !=0) && 
+        ((risingMask | fallingMask) != 0)) {
        // Interrupt support
        // Write to the interrupt polarity and enable registers
        if (fppProbe()==OK)
@@ -232,7 +233,8 @@ IpUnidig::IpUnidig(IndustryPackModule *pIndustryPackModule,
        }
        *intPolarityRegisterLow  = (UINT16) polarityMask;
        *intPolarityRegisterHigh = (UINT16) (polarityMask >> 16);
-       writeIntEnableRegs();
+       *intEnableRegisterLow  = (UINT16) (risingMask | fallingMask);
+       *intEnableRegisterHigh = (UINT16) ((risingMask | fallingMask) >> 16);
        Reboot::rebootHookAdd(rebootCallback,(void *)this);
        pIPM->intEnable(0);
     }
@@ -302,40 +304,6 @@ int IpUnidig::setDAC(UINT16 value)
     } 
 }
 
-UINT32 IpUnidig::getRisingMask()
-{
-   return(risingMask);
-}
-
-void IpUnidig::setRisingMaskBits(UINT32 mask)
-{
-   risingMask |= mask;
-   writeIntEnableRegs();
-}
-
-void IpUnidig::clearRisingMaskBits(UINT32 mask)
-{
-   risingMask &= ~mask;
-   writeIntEnableRegs();
-}
-
-UINT32 IpUnidig::getFallingMask()
-{
-   return(fallingMask);
-}
-
-void IpUnidig::setFallingMaskBits(UINT32 mask)
-{
-   fallingMask |= mask;
-   writeIntEnableRegs();
-}
-
-void IpUnidig::clearFallingMaskBits(UINT32 mask)
-{
-   fallingMask &= ~mask;
-   writeIntEnableRegs();
-}
-
 int IpUnidig::registerCallback(IpUnidigCallback callback, void *pvt, int mask)
    {
    IpUnidigClient *pClient;
@@ -356,7 +324,7 @@ int IpUnidig::registerCallback(IpUnidigCallback callback, void *pvt, int mask)
    return(0);
 }
 
-void IpUnidig::intFunc(void *v)
+void IpUnidig:: intFunc(void *v)
 {
    IpUnidig *t = (IpUnidig *) v;
    IpUnidigClient *pClient;
@@ -394,13 +362,7 @@ void IpUnidig::intFunc(void *v)
    if (t->pFpContext != NULL) fppRestore(t->pFpContext);
 }
 
-void IpUnidig::writeIntEnableRegs()
-{
-   *intEnableRegisterLow  = (UINT16) (risingMask | fallingMask);
-   *intEnableRegisterHigh = (UINT16) ((risingMask | fallingMask) >> 16);
-}
-
-void IpUnidig::rebootCallback(void *v)
+void IpUnidig:: rebootCallback(void *v)
 {
    IpUnidig *pIpUnidig = (IpUnidig *)v;
    *pIpUnidig->intEnableRegisterLow = 0;
