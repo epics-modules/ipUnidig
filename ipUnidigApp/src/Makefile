@@ -8,11 +8,10 @@ LIBRARY_IOC_vxWorks += ipUnidig
 
 DBD += devIpUnidig.dbd
 
-ipUnidig_SRCS += ipUnidig.cc
+ipUnidig_SRCS += drvIpUnidig.c
 ipUnidig_SRCS += devIpUnidig.cc
-ipUnidig_SRCS += ipUnidigServer.cc
 
-INC += ipUnidig.h
+INC += drvIpUnidig.h
 ipUnidig_LIBS += $(EPICS_BASE_IOC_LIBS)
 #=============================
 
