@@ -1,3 +1,0 @@
-#RELEASE Location of external products
-EPICS_BASE=/usr/local/epics/R3.13.7/base
-MPF=/home/epics/devel/mpf1-10
