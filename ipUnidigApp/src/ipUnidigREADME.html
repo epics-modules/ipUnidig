@@ -3,7 +3,7 @@
 <head>
 <meta http-equiv="Content-Type"
 content="text/html; charset=iso-8859-1">
-<meta name="GENERATOR" content="Microsoft FrontPage Express 2.0">
+<meta name="GENERATOR" content="Microsoft FrontPage 4.0">
 <title>ipUnidig</title>
 </head>
 
@@ -13,14 +13,21 @@ content="text/html; charset=iso-8859-1">
 
 <h2 align="center">Author: Mark Rivers</h2>
 
-<p>This package provides support for the Greenspring IP-Unidig
-series of digital I/O IP modules. It also supports the Systran
+<h2 align="center">Release 1.2</h2>
+
+<p>This package provides EPICS device support for the Greenspring IP-Unidig
+series of digital I/O Industry Pack modules. It also supports the Systran
 DIO316I module. The IP-Unidig family includes more than 20
 separate models. This software provides support for most of these
 models. Most models provide 24 bits, with each bit individually
 programmable as an input or an output. The last section of this
 document describes any special features or restrictions on
 particular models.</p>
+
+<p>The software is written in C++, and consists of an IpUnidig class that
+communicates with the hardware, an input server, an output server, and EPICS
+device support for the bi, bo and longin records.&nbsp; The servers use the
+Message Passing Facility (MPF).</p>
 
 <P>
 The software is available as a
@@ -69,7 +76,10 @@ following info:</p>
 
 <p>cmd - cmdStartMonitor or cmdStopMonitor</p>
 
-<p>The input server polls the input register at 10Hz. Whenever it
+<p>The input server polls the input register at a user-specified rate
+(default=10Hz). The IP-Unidig-I models can also be set to generate interrupts
+when any user-specified bits changed state, which also causes the input register
+to be read.&nbsp; Whenever it
 detects that any input bit has changed it sends a reply message
 to the last client which sent it a cmdStartMonitor command. This
 reply message is an Int32Messages which contains the current
@@ -89,7 +99,8 @@ information:</p>
 
 <h3>Server configuration</h3>
 
-<p>initIpUnidig(&quot;moduleName&quot;,&quot;carrier&quot;,&quot;site&quot;,queueSize)</p>
+<p>initIpUnidig(&quot;moduleName&quot;, &quot;carrier&quot;, &quot;site&quot;,
+queueSize, msecPoll, intVec, risingMask, fallingMask, biMask, maxClients)</p>
 
 <p>where </p>
 
@@ -98,20 +109,120 @@ information:</p>
 
 <p>carrier - The ip carrier name</p>
 
-<p>site - carrier IP site </p>
+<p>site - carrier IP site (e.g. &quot;Ip_a&quot; </p>
 
 <p>queueSize - message queue size. Make this the maximum number
 of records attached to this device. </p>
+
+<p>msecPoll - the number of millisecond between polls of the input
+register.&nbsp; Default=100 msec if this parameter is 0.&nbsp; This is the
+worst-case response time detecting a change of state for bits or modules that
+are not using interrupts.&nbsp; If interrupts are used then much faster
+responses can be obtained. </p>
+
+<p>intVec - the interrupt vector for modules that support interrupts.&nbsp; Zero
+if interrupts are not to be used. </p>
+
+<p>risingMask - bit mask of bits that should generate interrupts on the rising
+edge (low to high) </p>
+
+<p>fallingMask - bit mask of bits that should generate interrupts on the falling
+edge (high to low) </p>
+
+<p>biMask - bit mask of bits that should generate callbacks to the binary input
+record (bi) support when they interrupt. </p>
+
+<p>maxClients - maximum number of clients that will request callbacks from the
+IpUnidig interrupt routine.&nbsp; This is not the number of EPICS clients, but
+rather the number of device support classes that want to be called from IpUnidig.&nbsp;
+5 is the default if this parameter is 0, and should be plenty. </p>
 
 <p>initIpUnidig starts two separate server tasks, one for output
 and one for input. The names of these servers are
 &quot;moduleName&quot;Out and &quot;moduleName&quot;In
 respectively. The reason for having separate input and output
-servers is that the input server polls the read register at 10Hz,
-with a taskDelay(sysClkRateGet()/10) between polls. If the same
+servers is that the input server polls the read register (at 10Hz by default),
+with a semGet(delay)&nbsp; between polls. If the same
 server were used for output it would introduce a 0.1 second
-latency in responding to output commands, which is not
-desireable.</p>
+latency in responding to output commands, which is not desireable.</p>
+
+<hr>
+
+<h3>Interrupts</h3>
+
+<p>Beginning with release R1-2 interrupts on the IP-Unidig-I models are fully
+supported.&nbsp; For each input bit the hardware can be programmed to generate
+interrupts on rising or falling transitions, or neither.&nbsp; The interrupt
+service routine software is written to allow alternating which transition
+generates interrupts, so that it is also possible to generate interrupts on both
+rising and falling transitions.</p>
+
+<p>The risingMask and fallingMask parameters to initIpUnidig are used to specify
+which bits should generate interrupts on each edge.&nbsp; It is possible to have
+some bits set in neither mask, some in one mask and not the other, and some
+specified in both masks.&nbsp; For example if risingMask=5 (binary 101) and
+fallingMask=6 (binary 110), then the first input will generate interrupts on the
+rising edge, the second input will generate interrupts on the falling edge, the
+third input will generate interrupts on both rising and falling edges, and all
+other inputs will not generate interrupts at all.</p>
+
+<p>The biMask parameter is used to specify which bits should generate callbacks
+to the binary input device support when an interrupts occurs on that line.&nbsp;
+If it is specified as the bitwise &quot;or&quot; of risingMask and fallingMask
+(or alternatively 0xffff), then all interrupts will result in callbacks to the
+binary input device support.&nbsp; If some bits are set in risingMask or
+fallingMask, but are not set in biMask, then transitions on those bits will
+generate interrupts, but will not result in a callback to the bi device
+support.&nbsp; This can be useful because it is possible for other device
+support modules to request callbacks at interrupt level from the IpUnidig class
+on receipt of an interrupt on one or more inputs.&nbsp; If these interrupts are
+occurring very quickly, and the other device support is very efficient, it may
+be desirable for such interrupts to only result in callbacks to the other device
+support, and not to the binary input device support.&nbsp; The binary input
+device support is relatively &quot;expensive&quot; because it results in an MPF
+message and channel access monitors being posted every time an interrupt occurs.</p>
+
+<p>&nbsp;</p>
+
+<hr>
+
+<h2 align="center">IpUnidig class</h2>
+
+<p align="left">The call to initIpUnidig creates the input and output server
+tasks described above.&nbsp; It also creates an instance of the IpUnidig class,
+which is the class that actually communicates with the hardware.&nbsp; This
+class provides the following methods:</p>
+
+<pre>
+static IpUnidig * init(
+&nbsp;&nbsp;&nbsp;&nbsp; const char *moduleName, const char *carrierName, const char *siteName,
+&nbsp;&nbsp;&nbsp;&nbsp; int intVec, int risingMask, int fallingMask, int maxClients);
+
+IpUnidig(IndustryPackModule* pIPM, unsigned char manufacturer,&nbsp;
+&nbsp;&nbsp;&nbsp; unsigned char model,&nbsp;
+&nbsp;&nbsp;&nbsp; int intVec, int risingMask,&nbsp;
+&nbsp;&nbsp;&nbsp; int fallingMask, int maxClients);
+int setBits(UINT32 mask);
+int clearBits(UINT32 mask);
+int readBits(UINT32 *value);
+int setDAC(UINT16 value);
+int registerCallback(IpUnidigCallback callback, void *pvt, int mask);
+</pre>
+The init() and constructor methods are called from initIpUnidig() described
+above.&nbsp; setBits and clearBits are called from the output server, and
+readBits is called from the input server.&nbsp; registerCallback is called from
+the input server if interrupts are being used.&nbsp; Note, however that other device support can call setBits,
+clearBits, readBits and setDAC.&nbsp;&nbsp;
+<p>Most importantly other device support can call registerCallback.&nbsp; This
+will cause the the specified callback routine to be called when an interrupt
+occurs, passing a user-specified pointer (pvt) and the current value of the
+inputs.&nbsp; The mask parameter to registerCallback specifies which bits should
+result in callbacks being generated.&nbsp; Note that those bits must have had
+their interrupts enabled in the risingMask and fallingMask parameters to
+initIpUnidig.&nbsp; The callback routine is called at interrupt level, so it
+should be very fast and must obey the rules for interrupt routines.&nbsp; It can
+do floating point arithmetic because the floating point registers are saved and
+restored in the IpUnidig interrupt service routine.</p>
 
 <hr>
 
@@ -199,24 +310,18 @@ models. These models differ in the following ways:</p>
         differential (IP-Unidig-D), optically isolated
         (IP-Unidig-O), high-voltage (IP-Unidig-HV), or LineSafe
         (IP-Unidig-E).</li>
-    <li>On some models the inputs are capabable of generating
+    <li>On some models the inputs are capable of generating
         interrupts. Models which can generate interrupts have a
         &quot;-I&quot; in the model name, e.g. IP-Unidig-I and
-        IP-Unidig-I-HV. The interrupt capability of the modules
-        is <em>not used</em> in the this software. The reason is
-        that the modules can be programmed to generate an
-        interrupt on the rising edge or the falling edge of the
-        input signal, <em>but not both</em>. Thus, the hardware
-        interrupts cannot be used to detect an arbitrary
-        &quot;change-of-state&quot;. Instead, the inputs on all
-        models are polled at 10 Hz, and
+        IP-Unidig-I-HV. The interrupt capability of the modules is now fully
+      supported in this software (it was not supported in releases prior to
+      R1-2.).&nbsp; For each input bit the modules can be programmed to generate an
+        interrupt on the rising edge, on the falling edge,&nbsp; on both edges,
+      or never.&nbsp; If interrupts are not supported or desired, then the inputs on all
+        models are polled (default rate = 10 Hz, any rate up to the 60Hz system
+      clock can be used), and
         &quot;pseudo-interrupts&quot; are generated by the input
-        server if any input changes state. Users who are
-        considering buying IP-Unidig modules for use with this
-        software can save a little money by not purchasing the
-        interrupt capable models. Users who need the faster
-        response which the interrupt driven models can provide
-        will have to modify this software.</li>
+        server if any input changes state.</li>
 </ul>
 
 <p>The following provides information on specific models. Note
@@ -297,6 +402,33 @@ author so that fixes can be incorporated. </p>
         supports the first 24 bits (ports 0-2). - All output
         ports are enabled. - Ports 4 and 5 are input ports. This
         provides 16 bits of input, bits 0-15. </dd>
+    <dt>&nbsp;</dt>
+
+<hr>
+
+    <h2 align="center">Release Notes</h2>
+
+    <p align="left">Release 1-1.&nbsp; June 20, 2001.&nbsp; Initial release.</p>
+
+    <p align="left">Release 1-2.&nbsp; April 2, 2003. Added full support for interrupts on the
+    IP-Unidig-I models.&nbsp; For each input bit the hardware can be programmed to generate
+interrupts on rising or falling transitions, or neither.&nbsp; The interrupt
+service routine software is written to allow alternating which transition
+generates interrupts, so that it is also possible to generate interrupts on both
+rising and falling transitions.&nbsp; Wrote IpUnidig class so that other device
+    support can attach to interrupts on specific input lines and get callbacks
+    at interrupt level when a transition occurs.</p>
+
+    <dt>&nbsp;</dt>
 </dl>
+
+<hr>
+
+<address>
+    Suggestions and Comments to: <br>
+    <a href="mailto:rivers@cars.uchicago.edu">Mark Rivers </a>:
+    (rivers@cars.uchicago.edu) <br>
+    Last modified: April 2, 2003
+</address>
 </body>
 </html>
