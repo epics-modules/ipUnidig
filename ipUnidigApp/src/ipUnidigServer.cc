@@ -42,6 +42,7 @@ of this distribution.
 #include <epicsTypes.h>
 #include <iocsh.h>
 #include <epicsExport.h>
+#include "symTable.h"
 
 #include "Message.h"
 #include "Int32Message.h"
@@ -275,7 +276,7 @@ static const iocshArg initArg2 = { "Slot",iocshArgInt};
 static const iocshArg initArg3 = { "queueSize",iocshArgInt};
 static const iocshArg initArg4 = { "msecPoll",iocshArgInt};
 static const iocshArg initArg5 = { "intVec",iocshArgInt};
-static const iocshArg initArg6 = { "risingMask",iocshArgString};
+static const iocshArg initArg6 = { "risingMask",iocshArgInt};
 static const iocshArg initArg7 = { "fallingMask",iocshArgInt};
 static const iocshArg initArg8 = { "biMask",iocshArgInt};
 static const iocshArg initArg9 = { "maxClients",iocshArgInt};
@@ -292,14 +293,15 @@ static const iocshArg * const initArgs[10] = {&initArg0,
 static const iocshFuncDef initFuncDef = {"initIpUnidig",10,initArgs};
 static void initCallFunc(const iocshArgBuf *args)
 {
-    initIpUnidig(args[0].sval, (int) args[1].sval, (int) args[2].sval,
-                (int) args[3].sval, (int) args[4].sval, (int) args[5].sval,
-                (int) args[6].sval, (int) args[7].sval, (int) args[8].sval,
-                (int) args[9].sval);
+    initIpUnidig(args[0].sval, args[1].ival, args[2].ival,
+                 args[3].ival, args[4].ival, args[5].ival,
+                 args[6].ival, args[7].ival, args[8].ival,
+                 args[9].ival);
 }
-void ipUnidigRegister(void)
+void ipUnidigServerRegister(void)
 {
+    addSymbol("IpUnidigServerDebug", (epicsInt32 *)&IpUnidigServerDebug, epicsInt32T);
     iocshRegister(&initFuncDef,initCallFunc);
 }
 
-epicsExportRegistrar(ipUnidigRegister);
+epicsExportRegistrar(ipUnidigServerRegister);

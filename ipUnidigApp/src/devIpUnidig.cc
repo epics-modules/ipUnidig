@@ -44,12 +44,13 @@
 #include "boRecord.h"
 #include "recSup.h"
 #include "epicsTypes.h"
+#include "epicsExport.h"
+#include "symTable.h"
 
 #include "Message.h"
 #include "Int32Message.h"
 #include "DevMpf.h"
 #include "ipUnidig.h"
-#include "epicsExport.h"
 
 // longin record device support
 
@@ -303,3 +304,11 @@ long BoIpUnidig::completeIO(dbCommon* pr,Message* m)
         return rc;
 }
 
+void devIpUnidigRegister(void)
+{
+   addSymbol("devLiIpUnidigDebug", (epicsInt32 *)&devLiIpUnidigDebug, epicsInt32T);
+   addSymbol("devBiIpUnidigDebug", (epicsInt32 *)&devBiIpUnidigDebug, epicsInt32T);
+   addSymbol("devBoIpUnidigDebug", (epicsInt32 *)&devBoIpUnidigDebug, epicsInt32T);
+}
+
+epicsExportRegistrar(devIpUnidigRegister);

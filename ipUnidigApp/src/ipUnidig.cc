@@ -31,7 +31,10 @@ of this distribution.
 
 #include "errlog.h"
 #include "epicsTypes.h"
+#include "epicsExport.h"
 #include "gpHash.h"
+#include "symTable.h"
+
 
 #include "Reboot.h"
 #include "ipUnidig.h"
@@ -110,7 +113,7 @@ IpUnidig * IpUnidig::init(
           case UNIDIG_I_HV_8I16O:
              break;
           default:
-             printf("initIpUnidig model 0x%x not supported\n",model);
+             printf("IpUnidig::init model 0x%x not supported\n",model);
              return(0);
              break;
        }
@@ -118,13 +121,13 @@ IpUnidig * IpUnidig::init(
 
     case SYSTRAN_ID:
        if(model != SYSTRAN_DIO316I) {
-          printf("initIpUnidig model 0x%x not Systran DIO316I\n",model);
+          printf("IpUnidig::init model 0x%x not Systran DIO316I\n",model);
           return(0);
        }
        break;
        
     default: 
-       printf("initIpUnidig manufacturer 0x%x not supported\n", manufacturer);
+       printf("IpUnidig::init manufacturer 0x%x not supported\n", manufacturer);
        return(0);
        break;
     }
@@ -132,7 +135,9 @@ IpUnidig * IpUnidig::init(
                                  intVec, risingMask, fallingMask, maxClients);
 
     if (ipUnidigHash == NULL) gphInitPvt(&ipUnidigHash, 256);
-    GPHENTRY *hashEntry = gphAdd(ipUnidigHash, name, NULL);
+    char *temp = (char *)malloc(strlen(name)+1);
+    strcpy(temp, name);
+    GPHENTRY *hashEntry = gphAdd(ipUnidigHash, temp, NULL);
     hashEntry->userPvt = pIpUnidig;
 
     return(pIpUnidig);
@@ -427,3 +432,10 @@ void IpUnidig::rebootCallback(void *v)
    *pIpUnidig->intEnableRegisterHigh = 0;
    pIpUnidig->rebooting = true;
 }
+
+void ipUnidigRegister(void)
+{
+   addSymbol("IpUnidigDebug", (epicsInt32 *)&IpUnidigDebug, epicsInt32T);
+}
+
+epicsExportRegistrar(ipUnidigRegister);
