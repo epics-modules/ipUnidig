@@ -77,7 +77,7 @@ when any user-specified bits changed state, which also causes the input register
 to be read.&nbsp; Whenever it
 detects that any input bit has changed it sends a reply message
 to the last client which sent it a cmdStartMonitor command. This
-reply message is an Int32Messages which contains the current
+reply message is an Int32Message that contains the current
 value of all input bits. If the server receives a cmdStopMonitor
 command it stops sending reply messages until it receives another
 cmdStartMonitor command. </p>
@@ -248,6 +248,9 @@ binary output (bo), long input (longin) and binary input (bi). </p>
         from the server whenever any input bit changes state. The
         longin record thus contains current state of all of the
         input bits.</li>
+    <li>The longin record should set PINI=YES so that it processes
+        once at iocInit.  This causes it to send a message to the MPF
+        server, initiating the reply messages on polling or interrupts.</li>
     <li>Multiple binary input (bi) records are attached to the
         longin record. These bi records are normally set to use
         &quot;I/O Intr&quot; scanning, and they will all be
