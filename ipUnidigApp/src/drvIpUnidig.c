@@ -380,7 +380,8 @@ int initIpUnidig(const char *portName, ushort_t carrier, ushort_t slot,
     /* Start the thread to poll and handle interrupt callbacks to 
      * device support */
     epicsThreadCreate("ipUnidig",
-                      epicsThreadPriorityMedium, 10000,
+                      epicsThreadPriorityMedium,
+                      epicsThreadGetStackSize(epicsThreadStackMedium),
                       (EPICSTHREADFUNC)pollerThread,
                       pPvt);
  
