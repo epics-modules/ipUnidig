@@ -235,6 +235,7 @@ IpUnidig::IpUnidig(ushort_t carrier, ushort_t slot,
     }
     if (maxClients < 5) maxClients = 5;
     client = (IpUnidigClient *) calloc(maxClients, sizeof(IpUnidigClient));
+    this->maxClients = maxClients;
     this->risingMask = risingMask;
     this->fallingMask = fallingMask;
     this->polarityMask = risingMask;
