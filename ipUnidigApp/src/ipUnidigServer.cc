@@ -10,7 +10,12 @@ of this distribution.
     Date: 9/19/99
     Current Author: Mark Rivers
 
-    Modification: July 31, 2001  MLR Minor change to avoid compiler warning
+    Modifications: 
+    July 31, 2001 MLR  Minor change to avoid compiler warning
+    April 1, 2003 MLR  Add support for interrupts.  Added 6 parameters to call
+                       to initIpUnidig to configure interrupts.  These
+                       parameters are all optional, and the previous behavior
+                       will be obtained if they are omitted.
 
     This is the code for input and output servers using the Greensprings 
     ipUnidig series of digital I/O IP modules.
@@ -66,34 +71,41 @@ class IpUnidigInputServer {
 public:
     static void ipUnidigInputServer(IpUnidigInputServer *);
     IpUnidigInputServer(const char *moduleName, IpUnidig *pIpUnidig,
-                        int queueSize);
+                        int queueSize, int msecPoll, int biMask);
 private:
+    static void callBack(void *v, unsigned int bits);
     IpUnidig *pIpUnidig;
     MessageServer *pMessageServer;
     char *serverName;
     Int32Message *preceive;
+    UINT32 bits;
     UINT32 oldBits;
     bool valueChange;
+    SEM_ID semID;
+    int pollTicks;
 };
 
 
-extern "C" int initIpUnidig(
+extern "C" IpUnidig* initIpUnidig(
     const char *moduleName, const char *carrierName, const char *siteName,
-    int queueSize)
+    int queueSize, int msecPoll, 
+    int intVec, int risingMask, int fallingMask, int biMask, int maxClients)
 {
     int taskId;
     
-    IpUnidig *pIpUnidig = IpUnidig::init(moduleName,carrierName,siteName);
-    if(!pIpUnidig) return(-1);
+    IpUnidig *pIpUnidig = IpUnidig::init(moduleName, carrierName, siteName,
+                          intVec, risingMask, fallingMask, maxClients);
+    if(!pIpUnidig) return(0);
 
     IpUnidigInputServer *pIpUnidigInputServer = 
-            new IpUnidigInputServer(moduleName, pIpUnidig, queueSize);
+            new IpUnidigInputServer(moduleName, pIpUnidig, queueSize,
+            msecPoll, biMask);
     taskId = taskSpawn(inputTaskname,100,VX_FP_TASK,2000,
         (FUNCPTR)IpUnidigInputServer::ipUnidigInputServer,
         (int)pIpUnidigInputServer,0,0,0,0,0,0,0,0,0);
     if(taskId==ERROR) {
         printf("%s ipUnidigInputServer taskSpawn Failure\n", moduleName);
-        return(-1);
+        return(0);
     }
     
     IpUnidigOutputServer *pIpUnidigOutputServer = 
@@ -103,9 +115,9 @@ extern "C" int initIpUnidig(
         (int)pIpUnidigOutputServer,0,0,0,0,0,0,0,0,0);
     if(taskId==ERROR) {
         printf("%s ipUnidigOutputServer taskSpawn Failure\n", moduleName);
-        return(-1);
+        return(0);
     }
-    return(0);
+    return(pIpUnidig);
 }
 
 
@@ -164,12 +176,19 @@ void IpUnidigOutputServer::ipUnidigOutputServer(
 // ------------------- Input server ------------------------
 
 IpUnidigInputServer::IpUnidigInputServer(const char *moduleName, 
-                                           IpUnidig *pIpUnidig, int queueSize)
+                       IpUnidig *pIpUnidig, int queueSize, int msecPoll,
+                       int biMask)
 : pIpUnidig(pIpUnidig), preceive(0)
 {
     serverName = (char *) malloc(strlen(moduleName) + 10);
     strcpy(serverName, moduleName);
     strcat(serverName, "In");
+    // Default of 100 msec for backwards compatibility with old version
+    if (msecPoll == 0) msecPoll = 100;
+    pollTicks = msecPoll * sysClkRateGet() / 1000;
+    if (pollTicks < 1) pollTicks = 1;
+    semID = semBCreate(SEM_Q_PRIORITY, SEM_EMPTY);
+    pIpUnidig->registerCallback(callBack, (void *)this, biMask);
     pMessageServer = new MessageServer(serverName, queueSize);
 }
 
@@ -208,17 +227,24 @@ void IpUnidigInputServer::ipUnidigInputServer(IpUnidigInputServer *pServer)
             }
             if(pServer->preceive==0) break;
             int sendStatus = 0;
-            UINT32 bits;
-            pIpUnidig->readBits(&bits);
-            DEBUG(5, "UnidigInputServer, bits=%x\n", bits);
-            if (bits != pServer->oldBits) pServer->valueChange = true;
+            // Wait for an interrupt or for the poll time, whichever comes first
+            if (semTake(pServer->semID, pServer->pollTicks)) {
+               // The semTake timed out, so there was no interrupt, so we need
+               // to read the bits.  If there was an interrupt the bits got
+               // passed to the callback.
+               pIpUnidig->readBits(&pServer->bits);
+            } else {
+               DEBUG(4, "ipUnidigInputServer, got interrupt\n");
+            }   
+            DEBUG(5, "UnidigInputServer, bits=%x\n", pServer->bits);
+            if (pServer->bits != pServer->oldBits) pServer->valueChange = true;
             if (pServer->valueChange) {
                 pServer->valueChange = false;
-                pServer->oldBits = bits;
+                pServer->oldBits = pServer->bits;
                 Int32Message *psend =
                     (Int32Message *)pMessageServer->
                            allocReplyMessage(pServer->preceive,messageTypeInt32);
-                psend->value = bits;
+                psend->value = pServer->bits;
                 psend->status = 0;
                 sendStatus = pMessageServer->reply(psend);
             }
@@ -226,9 +252,15 @@ void IpUnidigInputServer::ipUnidigInputServer(IpUnidigInputServer *pServer)
                 delete pServer->preceive;
                 pServer->preceive = 0;
             }
-            taskDelay(sysClkRateGet() / 10);  // Wait 1/10 second
         }
     }
     return;
 }
 
+void IpUnidigInputServer:: callBack(void *v, unsigned int bits)
+{
+   // This is the function that gets called by IpUnidig when an interrupt occurs
+   IpUnidigInputServer *t = (IpUnidigInputServer *) v;
+   t->bits = bits;
+   semGive(t->semID);
+}
