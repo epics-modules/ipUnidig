@@ -1,7 +1,7 @@
 grecord(bo,"$(P)$(R)Bo$(BIT)")
 {
         field(DTYP,"asyn UInt32Digital")
-        field(OUT,"#C0 S$(BIT) @$(PORT)")
+        field(OUT,"@$(PORT),$(BIT)")
         field(VAL, "1")
         field(ZNAM, "Low")
         field(ONAM, "High")
