@@ -2,6 +2,6 @@ grecord(longin,"$(P)$(R)Li")
 {
         field(PINI, "YES")
         field(DTYP,"asyn UInt32Digital")
-        field(INP,"@$(PORT),0")
+        field(INP,"@asyn($(PORT) 0)")
         field(SCAN, "$(SCAN)")
 }

@@ -1,5 +1,5 @@
 grecord(longout,"$(P)$(R)Lo")
 {
         field(DTYP,"asyn UInt32Digital")
-        field(OUT,"@$(PORT),0")
+        field(OUT,"@asyn($(PORT) 0)")
 }
