@@ -1,0 +1,4 @@
+#RELEASE Location of external products
+include $(EPICS_SUPPORT_PATH)/config/MPF_RELEASE
+include $(EPICS_SUPPORT_PATH)/config/EPICS_BASE_RELEASE
+

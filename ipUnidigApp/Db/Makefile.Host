@@ -1,0 +1,16 @@
+# Makefile.Host
+TOP = ../../..
+include $(TOP)/config/CONFIG_APP
+
+#----------------------------------------------------
+# Add databases, templates, substitutions like this
+
+DB += IpUnidigBi.template
+DB += IpUnidigBo.template
+DB += IpUnidigLi.template
+DB += IpUnidig.substitutions
+
+include $(TOP)/config/RULES.Db
+#----------------------------------------
+#  ADD RULES AFTER THIS LINE
+
