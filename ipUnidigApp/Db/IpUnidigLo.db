@@ -1,0 +1,5 @@
+grecord(longout,"$(P)$(R)Lo")
+{
+        field(DTYP,"Greenspring IP-Unidig")
+        field(OUT,"#C0 S0 @$(PORT)")
+}
