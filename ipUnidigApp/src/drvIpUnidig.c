@@ -39,7 +39,7 @@
 #include "asynDriver.h"
 #include "asynUInt32Digital.h"
 #include "asynUInt32DigitalCallback.h"
-#include "asynIpUnidig.h"
+#include "asynInt32.h"
 
 
 #define GREENSPRING_ID 0xF0
@@ -129,20 +129,21 @@ typedef struct {
     asynInterface common;
     asynInterface uint32D;
     asynInterface uint32DCb;
-    asynInterface ipUnidig;
+    asynInterface int32;
 } drvIpUnidigPvt;
 
 /* These functions are in the asynCommon interface */
 static void report                 (void *drvPvt, FILE *fp, int details);
 static asynStatus connect          (void *drvPvt, asynUser *pasynUser);
 static asynStatus disconnect       (void *drvPvt, asynUser *pasynUser);
+
 /* These functions are in the asynUInt32Digital interface */
 static asynStatus write            (void *drvPvt, asynUser *pasynUser,
                                     epicsUInt32 value, epicsUInt32 mask);
 static asynStatus read             (void *drvPvt, asynUser *pasynUser,
                                     epicsUInt32 *value, epicsUInt32 mask);
 
-/* These functions are in the asynUInt32Digital interface */
+/* These functions are in the asynUInt32DigitalCallback interface */
 static asynStatus registerCallback (void *drvPvt, asynUser *pasynUser,
                                     void (*callback)(void *userPvt, epicsUInt32 data),
                                     epicsUInt32 mask, void *pvt);
@@ -156,9 +157,14 @@ static asynStatus clearInterrupt   (void *drvPvt, asynUser *pasynUser,
 static asynStatus getInterrupt     (void *drvPvt, asynUser *pasynUser,
                                     epicsUInt32 *mask, interruptReason reason);
 
-/* These functions are in the asynIpUnidig interface */
+/* These functions are in the asynInt32 interface */
 static asynStatus setDAC           (void *drvPvt, asynUser *pasynUser,
-                                    epicsUInt16 value);
+                                    epicsInt32 value);
+static asynStatus getDAC           (void *drvPvt, asynUser *pasynUser,
+                                    epicsInt32 *value);
+static asynStatus getDACBounds     (void *drvPvt, asynUser *pasynUser,
+                                    epicsInt32 *low, epicsInt32 *high);
+
 /* These are private functions */
 static void pollerThread            (drvIpUnidigPvt *pPvt);
 static void intFunc                 (void *); /* Interrupt function */
@@ -187,9 +193,11 @@ static const struct asynUInt32DigitalCallback ipUnidigUInt32DCb = {
     getInterrupt
 };
 
-/* asynIpUnidig methods */
-static const asynIpUnidig drvIpUnidig = {
-    setDAC
+/* asynInt32 methods */
+static const asynInt32 ipUnidigInt32 = {
+    setDAC,
+    getDAC,
+    getDACBounds
 };
 
 
@@ -280,9 +288,9 @@ int initIpUnidig(const char *portName, ushort_t carrier, ushort_t slot,
     pPvt->uint32DCb.interfaceType = asynUInt32DigitalCallbackType;
     pPvt->uint32DCb.pinterface  = (void *)&ipUnidigUInt32DCb;
     pPvt->uint32DCb.drvPvt = pPvt;
-    pPvt->ipUnidig.interfaceType = asynIpUnidigType;
-    pPvt->ipUnidig.pinterface  = (void *)&drvIpUnidig;
-    pPvt->ipUnidig.drvPvt = pPvt;
+    pPvt->int32.interfaceType = asynInt32Type;
+    pPvt->int32.pinterface  = (void *)&ipUnidigInt32;
+    pPvt->int32.drvPvt = pPvt;
     status = pasynManager->registerPort(pPvt->portName,
                                         0, /* not multiDevice, can't block */
                                         1, /* autoconnect */
@@ -307,9 +315,9 @@ int initIpUnidig(const char *portName, ushort_t carrier, ushort_t slot,
         errlogPrintf("initIpUnidig ERROR: Can't register UInt32DigitalCallback.\n");
         return -1;
     }
-    status = pasynManager->registerInterface(pPvt->portName,&pPvt->ipUnidig);
+    status = pasynManager->registerInterface(pPvt->portName,&pPvt->int32);
     if (status != asynSuccess) {
-        errlogPrintf("initIpUnidig ERROR: Can't register ipUnidig.\n");
+        errlogPrintf("initIpUnidig ERROR: Can't register Int32.\n");
         return -1;
     }
 
@@ -478,7 +486,7 @@ static asynStatus write(void *drvPvt, asynUser *pasynUser, epicsUInt32 value,
 }
 
 
-static asynStatus setDAC(void *drvPvt, asynUser *pasynUser, epicsUInt16 value)
+static asynStatus setDAC(void *drvPvt, asynUser *pasynUser, epicsInt32 value)
 {
     drvIpUnidigPvt *pPvt = (drvIpUnidigPvt *)drvPvt;
     ipUnidigRegisters r = pPvt->regs;
@@ -494,6 +502,41 @@ static asynStatus setDAC(void *drvPvt, asynUser *pasynUser, epicsUInt16 value)
        return(asynError);
     }
     return(asynSuccess); 
+}
+
+static asynStatus getDAC(void *drvPvt, asynUser *pasynUser, epicsInt32 *value)
+{
+    drvIpUnidigPvt *pPvt = (drvIpUnidigPvt *)drvPvt;
+    ipUnidigRegisters r = pPvt->regs;
+    if ((pPvt->manufacturer == GREENSPRING_ID)  &&
+        ((pPvt->model == UNIDIG_HV_16I8O)   || (pPvt->model == UNIDIG_HV_8I16O)  ||
+         (pPvt->model == UNIDIG_I_HV_16I8O) || (pPvt->model == UNIDIG_HV_8I16O))) {
+         *value = *r.DACRegister;
+         return(asynSuccess);
+    } else {
+       asynPrint(pasynUser, ASYN_TRACE_ERROR,
+                 "drvIpUnidig:getDAC not allowed for this model\n");
+       return(asynError);
+    }
+    return(asynSuccess);
+}
+
+static asynStatus getDACBounds(void *drvPvt, asynUser *pasynUser, 
+                               epicsInt32 *low, epicsInt32 *high)
+{
+    drvIpUnidigPvt *pPvt = (drvIpUnidigPvt *)drvPvt;
+    if ((pPvt->manufacturer == GREENSPRING_ID)  &&
+        ((pPvt->model == UNIDIG_HV_16I8O)   || (pPvt->model == UNIDIG_HV_8I16O)  ||
+         (pPvt->model == UNIDIG_I_HV_16I8O) || (pPvt->model == UNIDIG_HV_8I16O))) {
+         *low = 0;
+         *high = 4095;
+         return(asynSuccess);
+    } else {
+       asynPrint(pasynUser, ASYN_TRACE_ERROR,
+                 "drvIpUnidig:getDAC not allowed for this model\n");
+       return(asynError);
+    }
+    return(asynSuccess);
 }
 
 static asynStatus setInterrupt(void *drvPvt, asynUser *pasynUser,
