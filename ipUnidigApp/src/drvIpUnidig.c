@@ -160,7 +160,7 @@ static const struct asynCommon ipUnidigCommon = {
 };
 
 /* asynUInt32Digital methods */
-static const struct asynUInt32Digital ipUnidigUInt32D = {
+static struct asynUInt32Digital ipUnidigUInt32D = {
     write,
     read,
     setInterrupt,
@@ -171,7 +171,7 @@ static const struct asynUInt32Digital ipUnidigUInt32D = {
 };
 
 /* asynInt32 methods */
-static const asynInt32 ipUnidigInt32 = {
+static asynInt32 ipUnidigInt32 = {
     setDAC,
     getDAC,
     getDACBounds
