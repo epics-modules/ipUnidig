@@ -236,8 +236,6 @@ IpUnidig::IpUnidig(IndustryPackModule *pIndustryPackModule,
        *intEnableRegisterLow  = (UINT16) (risingMask | fallingMask);
        *intEnableRegisterHigh = (UINT16) ((risingMask | fallingMask) >> 16);
        Reboot::rebootHookAdd(rebootCallback,(void *)this);
-       pIPM->intConfig(0);
-       pIPM->intConfig(1);
        pIPM->intEnable(0);
     }
 }
