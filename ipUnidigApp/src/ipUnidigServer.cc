@@ -137,7 +137,6 @@ void IpUnidigOutputServer::ipUnidigOutputServer(
             Int32Message *pmessage = (Int32Message *)inmsg;
             pmessage->status = 0;
             UINT32 mask = pmessage->address;
-            DEBUG(2, "ipUnidigOutputServer, mask=%x\n", mask);
             switch (pmessage->cmd) {
                case cmdSetBits:
                   if(pIpUnidig->setBits(mask)) pmessage->status= -1;
@@ -154,6 +153,8 @@ void IpUnidigOutputServer::ipUnidigOutputServer(
                   pmessage->status= -1;
                   break;
             }
+            DEBUG(2, "ipUnidigOutputServer, cmd=%d, mask=%x, status=%d\n", 
+                      pmessage->cmd, mask, pmessage->status);
             pMessageServer->reply(pmessage);
         }
     }

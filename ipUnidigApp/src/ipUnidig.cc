@@ -51,6 +51,16 @@ of this distribution.
 
 #define SYSTRAN_DIO316I   0x63
 
+extern "C"
+{
+#ifdef NODEBUG
+#define DEBUG(l,f,v...) ;
+#else
+#define DEBUG(l,f,v...) { if(l<=IpUnidigDebug) printf(f,## v); }
+#endif
+volatile int IpUnidigDebug = 0;
+}
+
 
 IpUnidig * IpUnidig::init(
     const char *moduleName, const char *carrierName, const char *siteName)
@@ -177,6 +187,9 @@ int IpUnidig::setBits(UINT32 mask)
     }
     if (outputRegisterLow)  *outputRegisterLow  |= (UINT16) mask;
     if (outputRegisterHigh) *outputRegisterHigh |= (UINT16) (mask >> 16);
+    DEBUG(1, "IpUnidig::setBits, mask=%x\n", mask);
+    DEBUG(2, "IpUnidig::setBits, outputRegisterLow=%p, outputRegisterHigh=%p\n", 
+              outputRegisterLow, outputRegisterHigh);
     return(0);
 }
 
@@ -192,6 +205,9 @@ int IpUnidig::clearBits(UINT32 mask)
     }
     if (outputRegisterLow)  *outputRegisterLow  &= (UINT16) ~mask;
     if (outputRegisterHigh) *outputRegisterHigh &= (UINT16) (~mask >> 16);
+    DEBUG(1, "IpUnidig::clearBits, mask=%x\n", mask);
+    DEBUG(2, "IpUnidig::clearBits, outputRegisterLow=%p, outputRegisterHigh=%p\n", 
+              outputRegisterLow, outputRegisterHigh);
     return(0);
 }
 
@@ -200,6 +216,9 @@ int IpUnidig::readBits(UINT32 *value)
     *value = 0;
     if (inputRegisterLow)  *value  = (UINT32) *inputRegisterLow;
     if (inputRegisterHigh) *value |= (UINT32) (*inputRegisterHigh << 16);
+    DEBUG(1, "IpUnidig::readBits, *value=%x\n", *value);
+    DEBUG(2, "IpUnidig::readBits, inputRegisterLow=%p, inputRegisterHigh=%p\n", 
+              inputRegisterLow, inputRegisterHigh);
     return(0);
 }
 
