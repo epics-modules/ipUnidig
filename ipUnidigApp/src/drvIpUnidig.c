@@ -38,7 +38,6 @@
 /*#include "Reboot.h" */
 #include "asynDriver.h"
 #include "asynUInt32Digital.h"
-#include "asynUInt32DigitalCallback.h"
 #include "asynInt32.h"
 
 
@@ -71,14 +70,6 @@
 
 #define MAX_MESSAGES 100
 
-typedef struct {
-   ELLNODE *next;
-   ELLNODE *previous;
-   asynUser *pasynUser;
-   void (*callback)(void *userPvt, epicsUInt32 data);
-   void *pvt;
-   int mask;
-} ipUnidigClient;
 
 typedef struct {
     volatile epicsUInt16 *outputRegisterLow;
@@ -119,8 +110,6 @@ typedef struct {
     epicsUInt32 polarityMask;
     epicsUInt32 oldBits;
     ipUnidigRegisters regs;
-    ELLLIST clientList;
-    epicsMutexId clientLock;
     int forceCallback;
     double pollTime;
     epicsMessageQueueId msgQId;
@@ -128,8 +117,8 @@ typedef struct {
     int messagesFailed;
     asynInterface common;
     asynInterface uint32D;
-    asynInterface uint32DCb;
     asynInterface int32;
+    void *interruptPvt;
 } drvIpUnidigPvt;
 
 /* These functions are in the asynCommon interface */
@@ -142,14 +131,6 @@ static asynStatus write            (void *drvPvt, asynUser *pasynUser,
                                     epicsUInt32 value, epicsUInt32 mask);
 static asynStatus read             (void *drvPvt, asynUser *pasynUser,
                                     epicsUInt32 *value, epicsUInt32 mask);
-
-/* These functions are in the asynUInt32DigitalCallback interface */
-static asynStatus registerCallback (void *drvPvt, asynUser *pasynUser,
-                                    void (*callback)(void *userPvt, epicsUInt32 data),
-                                    epicsUInt32 mask, void *pvt);
-static asynStatus cancelCallback   (void *drvPvt, asynUser *pasynUser,
-                                    void (*callback)(void *userPvt, epicsUInt32 data),
-                                    epicsUInt32 mask, void *pvt);
 static asynStatus setInterrupt     (void *drvPvt, asynUser *pasynUser,
                                     epicsUInt32 mask, interruptReason reason);
 static asynStatus clearInterrupt   (void *drvPvt, asynUser *pasynUser,
@@ -181,16 +162,12 @@ static const struct asynCommon ipUnidigCommon = {
 /* asynUInt32Digital methods */
 static const struct asynUInt32Digital ipUnidigUInt32D = {
     write,
-    read
-};
-
-/* asynUInt32DigitalCallback methods */
-static const struct asynUInt32DigitalCallback ipUnidigUInt32DCb = {
-    registerCallback,
-    cancelCallback,
+    read,
     setInterrupt,
     clearInterrupt,
-    getInterrupt
+    getInterrupt,
+    NULL,
+    NULL
 };
 
 /* asynInt32 methods */
@@ -213,13 +190,11 @@ int initIpUnidig(const char *portName, ushort_t carrier, ushort_t slot,
     int status;
 
     pPvt = callocMustSucceed(1, sizeof(*pPvt), "initIpUnidig");
-    ellInit(&pPvt->clientList);
     pPvt->portName = epicsStrDup(portName);
 
     /* Default of 100 msec for backwards compatibility with old version */
     if (msecPoll == 0) msecPoll = 100;
     pPvt->pollTime = msecPoll / 1000.;
-    pPvt->clientLock = epicsMutexCreate();
     pPvt->msgQId = epicsMessageQueueCreate(MAX_MESSAGES, 
                                            sizeof(ipUnidigMessage));
 
@@ -285,9 +260,6 @@ int initIpUnidig(const char *portName, ushort_t carrier, ushort_t slot,
     pPvt->uint32D.interfaceType = asynUInt32DigitalType;
     pPvt->uint32D.pinterface  = (void *)&ipUnidigUInt32D;
     pPvt->uint32D.drvPvt = pPvt;
-    pPvt->uint32DCb.interfaceType = asynUInt32DigitalCallbackType;
-    pPvt->uint32DCb.pinterface  = (void *)&ipUnidigUInt32DCb;
-    pPvt->uint32DCb.drvPvt = pPvt;
     pPvt->int32.interfaceType = asynInt32Type;
     pPvt->int32.pinterface  = (void *)&ipUnidigInt32;
     pPvt->int32.drvPvt = pPvt;
@@ -305,17 +277,15 @@ int initIpUnidig(const char *portName, ushort_t carrier, ushort_t slot,
         errlogPrintf("initIpUnidig ERROR: Can't register common.\n");
         return -1;
     }
-    status = pasynManager->registerInterface(pPvt->portName,&pPvt->uint32D);
+    status = pasynUInt32DigitalBase->initialize(pPvt->portName, &pPvt->uint32D);
     if (status != asynSuccess) {
         errlogPrintf("initIpUnidig ERROR: Can't register UInt32Digital.\n");
         return -1;
     }
-    status = pasynManager->registerInterface(pPvt->portName,&pPvt->uint32DCb);
-    if (status != asynSuccess) {
-        errlogPrintf("initIpUnidig ERROR: Can't register UInt32DigitalCallback.\n");
-        return -1;
-    }
-    status = pasynManager->registerInterface(pPvt->portName,&pPvt->int32);
+    pasynManager->registerInterruptSource(pPvt->portName, &pPvt->uint32D,
+                                          &pPvt->interruptPvt);
+
+    status = pasynInt32Base->initialize(pPvt->portName,&pPvt->int32);
     if (status != asynSuccess) {
         errlogPrintf("initIpUnidig ERROR: Can't register Int32.\n");
         return -1;
@@ -626,68 +596,17 @@ static void intFunc(void *drvPvt)
 }
 
 
-static asynStatus registerCallback(void *drvPvt, asynUser *pasynUser,
-                                   void (*callback)(void *userPvt, epicsUInt32 data),
-                                   epicsUInt32 mask, void *pvt)
-{
-    /* Registers a callback to be called */
-    drvIpUnidigPvt *pPvt = (drvIpUnidigPvt *)drvPvt;
-    ipUnidigClient *pClient;
-
-    pClient = callocMustSucceed(1, sizeof(*pClient),
-                                "drvIpUnidig::registerCallback");
-    pClient->pvt = pvt;
-    pClient->callback = callback;
-    pClient->pasynUser = pasynUser;
-    pClient->mask = mask;
-    epicsMutexLock(pPvt->clientLock);
-    ellAdd(&pPvt->clientList, (ELLNODE *)pClient);
-    epicsMutexUnlock(pPvt->clientLock);
-    /* Make sure a callback happens for the initial value */
-    pPvt->forceCallback = 1;
-    asynPrint(pasynUser, ASYN_TRACE_FLOW,
-              "drvIpUnidig::registerCallback, mask=%x\n", mask);
-    return(asynSuccess);
-}
-
-static asynStatus cancelCallback(void *drvPvt, asynUser *pasynUser,
-                                 void (*callback)(void *userPvt, epicsUInt32 data),
-                                 epicsUInt32 mask, void *pvt)
-{
-    /* Cancels a callback registered above */
-    drvIpUnidigPvt *pPvt = (drvIpUnidigPvt *)drvPvt;
-    ipUnidigClient *pClient;
-    asynStatus status;
-
-    epicsMutexLock(pPvt->clientLock);
-    pClient = (ipUnidigClient *)ellFirst(&pPvt->clientList);
-    while(pClient) {
-        if ((pClient->callback == callback) &&
-            (pClient->mask == mask) &&
-            (pClient->pvt == pvt)) {
-             ellDelete(&pPvt->clientList, (ELLNODE *)pClient);
-             status = asynSuccess;
-             goto done;
-        }
-    }
-    status = asynError;
-done:
-    epicsMutexUnlock(pPvt->clientLock);
-    asynPrint(pasynUser, ASYN_TRACE_FLOW,
-              "drvIpUnidig::cancelCallback, mask=%x, status=%d\n", 
-              mask, status);
-    return(status);
-}
-
 static void pollerThread(drvIpUnidigPvt *pPvt)
 {
     /* This function runs in a separate thread.  It waits for the poll
      * time, or an interrupt, whichever comes first.  If the bits read from
      * the ipUnidig have changed then it does callbacks to all clients that
      * have registered with registerDevCallback */
-    ipUnidigClient *pClient;
     epicsUInt32 newBits, changedBits, interruptMask=0;
     ipUnidigMessage msg;
+    ELLLIST *pclientList;
+    interruptNode *pnode;
+    asynUInt32DigitalInterrupt *pUInt32D;
 
     while(1) {      
         /*  Wait for an interrupt or for the poll time, whichever comes first */
@@ -715,20 +634,20 @@ static void pollerThread(drvIpUnidigPvt *pPvt)
         if (interruptMask) {
             pPvt->forceCallback = 0;
             pPvt->oldBits = newBits;
-            /* Call the callback routines which have registered */
-            epicsMutexLock(pPvt->clientLock);
-            pClient = (ipUnidigClient *)ellFirst(&pPvt->clientList);
-            while(pClient) {
-                if (pClient->mask & interruptMask) {
+            pasynManager->interruptStart(pPvt->interruptPvt, &pclientList);
+            pnode = (interruptNode *)ellFirst(pclientList);
+            while (pnode) {
+                pUInt32D = pnode->drvPvt;
+                if (pUInt32D->mask & interruptMask) {
                     asynPrint(pPvt->pasynUser, ASYN_TRACE_FLOW,
                               "drvIpUnidig::pollerThread, calling client %p"
                               " mask=%x, callback=%p\n",
-                              pClient, pClient->mask, pClient->callback);
-                    pClient->callback(pClient->pvt, pClient->mask & newBits);
+                              pUInt32D, pUInt32D->mask, pUInt32D->callback);
+                    pUInt32D->callback(pUInt32D->userPvt, pUInt32D->mask & newBits);
                 }
-                pClient = (ipUnidigClient *)ellNext(pClient);
+                pnode = (interruptNode *)ellNext(&pnode->node);
             }
-            epicsMutexUnlock(pPvt->clientLock);
+            pasynManager->interruptEnd(pPvt->interruptPvt);
         }
     }
 }
@@ -761,7 +680,6 @@ static void rebootCallback(void *drvPvt)
 static void report(void *drvPvt, FILE *fp, int details)
 {
     drvIpUnidigPvt *pPvt = (drvIpUnidigPvt *)drvPvt;
-    ipUnidigClient *pClient;
     ipUnidigRegisters r = pPvt->regs;
     epicsUInt32 intEnableRegister, intPolarityRegister;
 
@@ -779,13 +697,6 @@ static void report(void *drvPvt, FILE *fp, int details)
         fprintf(fp, "  intPolarityRegister=%x\n", intPolarityRegister);
         fprintf(fp, "  messages sent OK=%d; send failed (queue full)=%d\n",
                 pPvt->messagesSent, pPvt->messagesFailed);
-        pClient = (ipUnidigClient *)ellFirst(&pPvt->clientList);
-        while (pClient) {
-            fprintf(fp, "  client address=%p, mask=%x\n",
-                    pClient->callback, pClient->mask);
-            pClient = (ipUnidigClient *)ellNext(pClient);
-        }
-            
     }
 }
 
