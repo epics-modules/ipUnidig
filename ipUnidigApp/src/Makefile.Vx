@@ -2,6 +2,8 @@
 TOP = ../../..
 include $(TOP)/config/CONFIG_APP
 
+SRCS.cc += ../devIpUnidig.cc ../ipUnidig.cc ../ipUnidigServer.cc
+
 PROD += devIpUnidig.o 
 LIBOBJS += ipUnidig.o
 LIBOBJS += ipUnidigServer.o
