@@ -467,8 +467,8 @@ static asynStatus setDAC(void *drvPvt, asynUser *pasynUser, epicsInt32 value)
          *r.DACRegister  = value;
          return(asynSuccess);
     } else {
-       asynPrint(pasynUser, ASYN_TRACE_ERROR,
-                 "drvIpUnidig:setDAC not allowed for this model\n");
+       epicsSnprintf(pasynUser->errorMessage, pasynUser->errorMessageSize,
+                     "drvIpUnidig:setDAC not allowed for this model");
        return(asynError);
     }
     return(asynSuccess); 
@@ -484,8 +484,8 @@ static asynStatus getDAC(void *drvPvt, asynUser *pasynUser, epicsInt32 *value)
          *value = *r.DACRegister;
          return(asynSuccess);
     } else {
-       asynPrint(pasynUser, ASYN_TRACE_ERROR,
-                 "drvIpUnidig:getDAC not allowed for this model\n");
+       epicsSnprintf(pasynUser->errorMessage, pasynUser->errorMessageSize,
+                     "drvIpUnidig:getDAC not allowed for this model");
        return(asynError);
     }
     return(asynSuccess);
@@ -502,8 +502,8 @@ static asynStatus getDACBounds(void *drvPvt, asynUser *pasynUser,
          *high = 4095;
          return(asynSuccess);
     } else {
-       asynPrint(pasynUser, ASYN_TRACE_ERROR,
-                 "drvIpUnidig:getDAC not allowed for this model\n");
+       epicsSnprintf(pasynUser->errorMessage, pasynUser->errorMessageSize,
+                 "drvIpUnidig:getDAC not allowed for this model");
        return(asynError);
     }
     return(asynSuccess);
@@ -682,6 +682,8 @@ static void report(void *drvPvt, FILE *fp, int details)
     drvIpUnidigPvt *pPvt = (drvIpUnidigPvt *)drvPvt;
     ipUnidigRegisters r = pPvt->regs;
     epicsUInt32 intEnableRegister, intPolarityRegister;
+    interruptNode *pnode;
+    ELLLIST *pclientList;
 
     fprintf(fp, "drvIpUnidig %s: connected at base address %p\n",
             pPvt->portName, pPvt->baseAddress);
@@ -697,7 +699,16 @@ static void report(void *drvPvt, FILE *fp, int details)
         fprintf(fp, "  intPolarityRegister=%x\n", intPolarityRegister);
         fprintf(fp, "  messages sent OK=%d; send failed (queue full)=%d\n",
                 pPvt->messagesSent, pPvt->messagesFailed);
-    }
+            pasynManager->interruptStart(pPvt->interruptPvt, &pclientList);
+        pnode = (interruptNode *)ellFirst(pclientList);
+        while (pnode) {
+            asynUInt32DigitalInterrupt *pUInt32D = pnode->drvPvt;
+            fprintf(fp, "  uint32Digital callback client address=%p, mask=%x\n",
+                    pUInt32D->callback, pUInt32D->mask);
+            pnode = (interruptNode *)ellNext(&pnode->node);
+        }
+        pasynManager->interruptEnd(pPvt->interruptPvt);
+     }
 }
 
 /* Connect */
