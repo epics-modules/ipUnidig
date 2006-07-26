@@ -8,6 +8,20 @@
 
 <h1 align="center">ipUnidig Release Notes</h1>
 
+<h2 align="center">Release 2-4 (?????, 2006)</h2>
+<ul>
+   <li>Ron Sluiter fixed a bug in initIpUnidig() of drvIpUnidig.c.
+       The BSP was not enabling interrupts for whatever level
+       the IP carrier was configured for unless some other
+       IRQ handler, with the same IRQ level, had already
+       enabled interrupts.</li>
+  <li>Kurt Goetze added new medm adl files: IpUnidig_all.adl, IpUnidig_help.adl,
+      IpUnidig_top.adl </li>
+</ul>
+<p></p>
+
+
+
 <h2 align="center">Release 2-3 (March 23, 2005)</h2>
 <p>Major re-write:</p>
 <ul>
