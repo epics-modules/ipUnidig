@@ -403,6 +403,9 @@ int initIpUnidig(const char *portName, ushort_t carrier, ushort_t slot,
        *pPvt->regs.intPolarityRegisterHigh = (epicsUInt16) 
                                                     (pPvt->polarityMask >> 16);
        writeIntEnableRegs(pPvt);
+       /* Enable IPAC module interrupts and set module status. */
+       ipmIrqCmd(carrier, slot, 0, ipac_irqEnable);
+       ipmIrqCmd(carrier, slot, 0, ipac_statActive);
     }
 
     /* Reboot::rebootHookAdd(rebootCallback,(void *)this); */
