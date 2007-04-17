@@ -648,7 +648,7 @@ static void pollerThread(drvIpUnidigPvt *pPvt)
                               " mask=%x, callback=%p\n",
                               pUInt32D, pUInt32D->mask, pUInt32D->callback);
                     pUInt32D->callback(pUInt32D->userPvt, pUInt32D->pasynUser,
-                                       pUInt32D->mask & newBits);
+                                       pUInt32D->mask & newBits, asynSuccess);
                 }
                 pnode = (interruptNode *)ellNext(&pnode->node);
             }
