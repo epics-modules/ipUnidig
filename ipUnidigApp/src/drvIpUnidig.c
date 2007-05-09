@@ -31,6 +31,7 @@
 #include <epicsThread.h>
 #include <epicsMutex.h>
 #include <epicsString.h>
+#include <epicsExit.h>
 #include <epicsMessageQueue.h>
 #include <epicsExport.h>
 #include <iocsh.h>
@@ -408,7 +409,7 @@ int initIpUnidig(const char *portName, ushort_t carrier, ushort_t slot,
        ipmIrqCmd(carrier, slot, 0, ipac_statActive);
     }
 
-    /* Reboot::rebootHookAdd(rebootCallback,(void *)this); */
+    epicsAtExit(rebootCallback, pPvt);
     return(0);
 }
 
