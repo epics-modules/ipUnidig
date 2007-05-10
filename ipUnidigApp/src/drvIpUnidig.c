@@ -15,17 +15,16 @@
     28-Jul-2004 MLR  Converted to generic asynUInt32Digital interfaces
 */
 
+/* System includes */
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 
-#include <intLib.h>
-#include <taskLib.h>
-#include <iv.h>
+/* EPICS includes */
 #include <drvIpac.h>
-
 #include <errlog.h>
 #include <ellLib.h>
+#include <devLib.h>
 #include <cantProceed.h>
 #include <epicsTypes.h>
 #include <epicsThread.h>
@@ -35,11 +34,9 @@
 #include <epicsMessageQueue.h>
 #include <epicsExport.h>
 #include <iocsh.h>
-
-/*#include "Reboot.h" */
-#include "asynDriver.h"
-#include "asynUInt32Digital.h"
-#include "asynInt32.h"
+#include <asynDriver.h>
+#include <asynUInt32Digital.h>
+#include <asynInt32.h>
 
 
 #define GREENSPRING_ID 0xF0
@@ -371,10 +368,10 @@ int initIpUnidig(const char *portName, ushort_t carrier, ushort_t slot,
        case UNIDIG_I_HV_16I8O:
        case UNIDIG_I_O_12I12O:
        case UNIDIG_I_HV_8I16O:
-          pPvt->supportsInterrupts = TRUE;
+          pPvt->supportsInterrupts = 1;
           break;
        default:
-          pPvt->supportsInterrupts = FALSE;
+          pPvt->supportsInterrupts = 0;
           break;
     }
 
@@ -397,13 +394,15 @@ int initIpUnidig(const char *portName, ushort_t carrier, ushort_t slot,
        /* Interrupt support */
        /* Write to the interrupt polarity and enable registers */
        *pPvt->regs.intVecRegister = intVec;
-       if (intConnect(INUM_TO_IVEC(intVec),(VOIDFUNCPTR)intFunc,(int)pPvt)==ERROR){
-                errlogPrintf("ipUnidig intConnect Failure\n");
+       if (devConnectInterruptVME(intVec, intFunc, (void *)pPvt)) {
+           errlogPrintf("ipUnidig interrupt connect failure\n");
+           return(-1);
        }
        *pPvt->regs.intPolarityRegisterLow  = (epicsUInt16) pPvt->polarityMask;
        *pPvt->regs.intPolarityRegisterHigh = (epicsUInt16) 
                                                     (pPvt->polarityMask >> 16);
        writeIntEnableRegs(pPvt);
+
        /* Enable IPAC module interrupts and set module status. */
        ipmIrqCmd(carrier, slot, 0, ipac_irqEnable);
        ipmIrqCmd(carrier, slot, 0, ipac_statActive);
@@ -421,7 +420,7 @@ static asynStatus read(void *drvPvt, asynUser *pasynUser, epicsUInt32 *value,
     drvIpUnidigPvt *pPvt = (drvIpUnidigPvt *)drvPvt;
     ipUnidigRegisters r = pPvt->regs;
 
-    if(pPvt->rebooting) taskSuspend(0);
+    if(pPvt->rebooting) epicsThreadSuspendSelf();
     *value = 0;
     if (r.inputRegisterLow)  *value  = (epicsUInt32) *r.inputRegisterLow;
     if (r.inputRegisterHigh) *value |= (epicsUInt32) (*r.inputRegisterHigh << 16);
@@ -438,7 +437,7 @@ static asynStatus write(void *drvPvt, asynUser *pasynUser, epicsUInt32 value,
     ipUnidigRegisters r = pPvt->regs;
 
     /* For the IP-Unidig differential output models, must enable all outputs */
-    if(pPvt->rebooting) taskSuspend(0);
+    if(pPvt->rebooting) epicsThreadSuspendSelf();
     if ((pPvt->manufacturer == GREENSPRING_ID)  &&
         ((pPvt->model == UNIDIG_D) || (pPvt->model == UNIDIG_I_D))) {
          *r.outputEnableLow  |= (epicsUInt16) mask;
