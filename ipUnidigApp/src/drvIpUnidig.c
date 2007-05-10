@@ -66,7 +66,7 @@
 
 #define SYSTRAN_DIO316I   0x63
 
-#define MAX_MESSAGES 100
+#define MAX_MESSAGES 1000
 
 
 typedef struct {
@@ -378,8 +378,8 @@ int initIpUnidig(const char *portName, ushort_t carrier, ushort_t slot,
     /* Start the thread to poll and handle interrupt callbacks to 
      * device support */
     epicsThreadCreate("ipUnidig",
-                      epicsThreadPriorityMedium,
-                      epicsThreadGetStackSize(epicsThreadStackMedium),
+                      epicsThreadPriorityHigh,
+                      epicsThreadGetStackSize(epicsThreadStackBig),
                       (EPICSTHREADFUNC)pollerThread,
                       pPvt);
  
