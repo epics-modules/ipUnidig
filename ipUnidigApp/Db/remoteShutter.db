@@ -1,7 +1,7 @@
 
 record(seq, "$(P)rshtr$(S):Open") {
   field(DESC, "Shutter Open Sequence")
-  field(SDIS, "PA:$(BL)ID:$(PPS)_SHTRS_CLOSED")
+  field(SDIS, "PA:$(BL):$(PPS)_SHTRS_CLOSED")
   field(DISV, "0")
   field(SCAN, "Passive")
   field(DOL1, "0")
@@ -13,7 +13,7 @@ record(seq, "$(P)rshtr$(S):Open") {
 
 record(seq, "$(P)rshtr$(S):Close") {
   field(DESC, "Shutter Close Sequence")
-  field(SDIS, "PA:$(BL)ID:$(PPS)_SHTRS_CLOSED")
+  field(SDIS, "PA:$(BL):$(PPS)_SHTRS_CLOSED")
   field(DISV, "1")
   field(SCAN, "Passive")
   field(DOL1, "1")
