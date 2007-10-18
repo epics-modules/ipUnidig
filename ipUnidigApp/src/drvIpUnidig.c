@@ -41,6 +41,7 @@
 
 #define GREENSPRING_ID 0xF0
 #define SYSTRAN_ID     0x45
+#define SBS_ID         0xB3
 
 #define UNIDIG_E          0x51 /*IP-Unidig-E          (24 I/O, LineSafe) */
 #define UNIDIG            0x61 /*IP-Unidig            (24 I/O) */
@@ -65,6 +66,8 @@
 #define UNIDIG_I_HV_8I16O 0x75 /*IP-Unidig-I-HV-8I16O (8I, 16O, high voltage, ints.) */
 
 #define SYSTRAN_DIO316I   0x63
+
+#define SBS_IPOPTOIO8     0x02
 
 #define MAX_MESSAGES 1000
 
@@ -125,9 +128,9 @@ static asynStatus connect          (void *drvPvt, asynUser *pasynUser);
 static asynStatus disconnect       (void *drvPvt, asynUser *pasynUser);
 
 /* These functions are in the asynUInt32Digital interface */
-static asynStatus write            (void *drvPvt, asynUser *pasynUser,
+static asynStatus writeUInt32D     (void *drvPvt, asynUser *pasynUser,
                                     epicsUInt32 value, epicsUInt32 mask);
-static asynStatus read             (void *drvPvt, asynUser *pasynUser,
+static asynStatus readUInt32D      (void *drvPvt, asynUser *pasynUser,
                                     epicsUInt32 *value, epicsUInt32 mask);
 static asynStatus setInterrupt     (void *drvPvt, asynUser *pasynUser,
                                     epicsUInt32 mask, interruptReason reason);
@@ -159,8 +162,8 @@ static const struct asynCommon ipUnidigCommon = {
 
 /* asynUInt32Digital methods */
 static struct asynUInt32Digital ipUnidigUInt32D = {
-    write,
-    read,
+    writeUInt32D,
+    readUInt32D,
     setInterrupt,
     clearInterrupt,
     getInterrupt,
@@ -237,6 +240,13 @@ int initIpUnidig(const char *portName, ushort_t carrier, ushort_t slot,
     case SYSTRAN_ID:
        if(model != SYSTRAN_DIO316I) {
           errlogPrintf("initIpUnidig model 0x%x not Systran DIO316I\n",model);
+          return(-1);
+       }
+       break;
+       
+    case SBS_ID:
+       if(model != SBS_IPOPTOIO8) {
+          errlogPrintf("initIpUnidig model 0x%x not SBS IP-OPTOIO-8\n",model);
           return(-1);
        }
        break;
@@ -358,6 +368,26 @@ int initIpUnidig(const char *portName, ushort_t carrier, ushort_t slot,
           break;
        }
        break;
+    case SBS_ID:
+       switch (model) {
+       case SBS_IPOPTOIO8:
+         /* Different register layout */
+         memset(&pPvt->regs, 0, sizeof(pPvt->regs));
+         pPvt->regs.inputRegisterLow   = base + 1;
+         pPvt->regs.outputRegisterLow  = base + 2;
+         pPvt->regs.controlRegister0   = base + 3;
+         *pPvt->regs.controlRegister0 = 0x00;   /* Start state machine reset */
+         *pPvt->regs.controlRegister0 = 0x01;   /* ....   */
+         *pPvt->regs.controlRegister0 = 0x00;   /* State machine in state 0 */
+         *pPvt->regs.controlRegister0 = 0x2B;   /* Select Port B DDR */
+         *pPvt->regs.controlRegister0 = 0xFF;   /* All Port B bits are inputs */
+         *pPvt->regs.controlRegister0 = 0x2A;   /* Select Port B DPPR */
+         *pPvt->regs.controlRegister0 = 0xFF;   /* All Port B bits inverted */
+         *pPvt->regs.controlRegister0 = 0x01;   /* Select MCCR */
+         *pPvt->regs.controlRegister0 = 0x84;   /* Enable ports A and B */
+          break;
+        }
+        break;
     }
     switch (model) {
        case UNIDIG_I_O_24I:
@@ -414,7 +444,7 @@ int initIpUnidig(const char *portName, ushort_t carrier, ushort_t slot,
 
 
 
-static asynStatus read(void *drvPvt, asynUser *pasynUser, epicsUInt32 *value,
+static asynStatus readUInt32D(void *drvPvt, asynUser *pasynUser, epicsUInt32 *value,
                        epicsUInt32 mask)
 {
     drvIpUnidigPvt *pPvt = (drvIpUnidigPvt *)drvPvt;
@@ -430,7 +460,7 @@ static asynStatus read(void *drvPvt, asynUser *pasynUser, epicsUInt32 *value,
     return(asynSuccess);
 }
 
-static asynStatus write(void *drvPvt, asynUser *pasynUser, epicsUInt32 value,
+static asynStatus writeUInt32D(void *drvPvt, asynUser *pasynUser, epicsUInt32 value,
                         epicsUInt32 mask)
 {
     drvIpUnidigPvt *pPvt = (drvIpUnidigPvt *)drvPvt;
@@ -620,7 +650,7 @@ static void pollerThread(drvIpUnidigPvt *pPvt)
             /* The wait timed out, so there was no interrupt, so we need
              * to read the bits.  If there was an interrupt the bits got
              * set in the interrupt routines */
-            read(pPvt, pPvt->pasynUser, &newBits, 0xffffffff);
+            readUInt32D(pPvt, pPvt->pasynUser, &newBits, 0xffffffff);
         } else {
             newBits = msg.bits;
             interruptMask = msg.interruptMask;
@@ -686,17 +716,16 @@ static void report(void *drvPvt, FILE *fp, int details)
 {
     drvIpUnidigPvt *pPvt = (drvIpUnidigPvt *)drvPvt;
     ipUnidigRegisters r = pPvt->regs;
-    epicsUInt32 intEnableRegister, intPolarityRegister;
+    epicsUInt32 intEnableRegister = 0, intPolarityRegister = 0;
     interruptNode *pnode;
     ELLLIST *pclientList;
 
     fprintf(fp, "drvIpUnidig %s: connected at base address %p\n",
             pPvt->portName, pPvt->baseAddress);
     if (details >= 1) {
-        intEnableRegister = *r.intEnableRegisterLow;
-        intEnableRegister |= (*r.intEnableRegisterHigh << 16);
-        intPolarityRegister = *r.intPolarityRegisterLow;
-        intPolarityRegister |= (*r.intPolarityRegisterHigh << 16);
+        if (r.intEnableRegisterHigh) intEnableRegister |= (*r.intEnableRegisterHigh << 16);
+        if (r.intPolarityRegisterLow) intPolarityRegister = *r.intPolarityRegisterLow;
+        if (r.intPolarityRegisterHigh) intPolarityRegister |= (*r.intPolarityRegisterHigh << 16);
 
         fprintf(fp, "  risingMask=%x\n", pPvt->risingMask);
         fprintf(fp, "  fallingMask=%x\n", pPvt->fallingMask);
