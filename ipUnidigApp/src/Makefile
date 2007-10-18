@@ -5,6 +5,7 @@ include $(TOP)/configure/CONFIG
 #=============================
 
 LIBRARY_IOC_vxWorks += ipUnidig
+LIBRARY_IOC_RTEMS += ipUnidig
 # If your Linux system supports drvIpac and devLib then uncomment this line
 LIBRARY_IOC_Linux += ipUnidig
 
