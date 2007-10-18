@@ -11,8 +11,8 @@ TEMPLATE_TOP=$(EPICS_BASE)/templates/makeBaseApp/top
 #If using the sequencer, point SNCSEQ at its top directory:
 #SNCSEQ=$(EPICS_BASE)/../modules/soft/seq
 
-ASYN=/corvette/home/epics/devel/asyn/4-7beta
-IPAC=/corvette/home/epics/devel/ipac/2-8
+ASYN=/corvette/home/epics/devel/asyn/4-9beta
+IPAC=/corvette/home/epics/devel/ipac/2-9beta
 
 # EPICS_BASE usually appears last so other apps can override stuff:
 EPICS_BASE=/corvette/usr/local/epics/base-3.14.8.2
