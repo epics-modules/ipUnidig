@@ -723,8 +723,9 @@ static void report(void *drvPvt, FILE *fp, int details)
     fprintf(fp, "drvIpUnidig %s: connected at base address %p\n",
             pPvt->portName, pPvt->baseAddress);
     if (details >= 1) {
-        if (r.intEnableRegisterHigh) intEnableRegister |= (*r.intEnableRegisterHigh << 16);
-        if (r.intPolarityRegisterLow) intPolarityRegister = *r.intPolarityRegisterLow;
+        if (r.intEnableRegisterLow)    intEnableRegister =     *r.intEnableRegisterLow;
+        if (r.intEnableRegisterHigh)   intEnableRegister |=   (*r.intEnableRegisterHigh << 16);
+        if (r.intPolarityRegisterLow)  intPolarityRegister =   *r.intPolarityRegisterLow;
         if (r.intPolarityRegisterHigh) intPolarityRegister |= (*r.intPolarityRegisterHigh << 16);
 
         fprintf(fp, "  risingMask=%x\n", pPvt->risingMask);
