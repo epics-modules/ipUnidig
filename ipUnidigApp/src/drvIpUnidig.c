@@ -651,6 +651,7 @@ static void pollerThread(drvIpUnidigPvt *pPvt)
              * to read the bits.  If there was an interrupt the bits got
              * set in the interrupt routines */
             readUInt32D(pPvt, pPvt->pasynUser, &newBits, 0xffffffff);
+            interruptMask = 0;
         } else {
             newBits = msg.bits;
             interruptMask = msg.interruptMask;
@@ -658,7 +659,8 @@ static void pollerThread(drvIpUnidigPvt *pPvt)
                       "drvIpUnidig::pollerThread, got interrupt\n");
         }
         asynPrint(pPvt->pasynUser, ASYN_TRACEIO_DRIVER,
-                  "drvIpUnidig::pollerThread, bits=%x\n", newBits);
+                  "drvIpUnidig::pollerThread, bits=%x, pPvt->oldBits=%x, interruptMask=%x\n", 
+                  newBits, pPvt->oldBits, interruptMask);
 
         /* We detect change both from interruptMask (which only works for
          * interrupts) and changedBits, which works for polling */
