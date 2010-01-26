@@ -11,11 +11,11 @@ TEMPLATE_TOP=$(EPICS_BASE)/templates/makeBaseApp/top
 #If using the sequencer, point SNCSEQ at its top directory:
 #SNCSEQ=$(EPICS_BASE)/../modules/soft/seq
 
-ASYN=J:/epics/devel/asyn/4-9beta
-IPAC=J:/epics/devel/ipac/2-9beta
+ASYN=J:/epics/devel/asyn/4-13
+IPAC=J:/epics/devel/ipac/2-10
 
 # EPICS_BASE usually appears last so other apps can override stuff:
-EPICS_BASE=H:/epics/base-3.14.8.2
+EPICS_BASE=H:/epics/base-3.14.11
 
 #Capfast users may need the following definitions
 #CAPFAST_TEMPLATES=
