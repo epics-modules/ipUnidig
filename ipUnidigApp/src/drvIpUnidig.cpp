@@ -35,6 +35,9 @@
 
 #include <asynPortDriver.h>
 
+#define digitalInputString  "DIGITAL_INPUT"
+#define digitalOutputString "DIGITAL_OUTPUT"
+#define DACOutputString     "DAC_OUTPUT"
 
 #define GREENSPRING_ID 0xF0
 #define SYSTRAN_ID     0x45
@@ -133,10 +136,19 @@ private:
   epicsMessageQueueId msgQId_;
   int messagesSent_;
   int messagesFailed_;
-  int dataParam_;
+  // We need separate parameters for input and output because we don't want device
+  // support to set the output records based on the input records, which it will do
+  // if they are the same parameter.
+  int digitalInputParam_;
+  #define FIRST_IPUNIDIG_PARAM digitalInputParam_
+  int digitalOutputParam_;
+  int DACOutputParam_;
+  #define LAST_IPUNIDIG_PARAM DACOutputParam_
   
   void writeIntEnableRegs();
 };
+
+#define NUM_IPUNIDIG_PARAMS (&LAST_IPUNIDIG_PARAM - &FIRST_IPUNIDIG_PARAM + 1)
 
 // These functions must have C linkage because they are called from other EPICS components
 extern "C" {
@@ -160,7 +172,7 @@ static void intFuncC(void * pPvt)
 }
 
 IpUnidig::IpUnidig(const char *portName, int carrier, int slot, int msecPoll, int intVec, int risingMask, int fallingMask)
-  :asynPortDriver(portName,1,1,
+  :asynPortDriver(portName,1,NUM_IPUNIDIG_PARAMS,
                   asynInt32Mask | asynUInt32DigitalMask | asynDrvUserMask,
                   asynUInt32DigitalMask,
                   0,1,0,0),
@@ -172,6 +184,9 @@ IpUnidig::IpUnidig(const char *portName, int carrier, int slot, int msecPoll, in
   //static const char *functionName = "IpUnidig";
   ipac_idProm_t *id;
   epicsUInt16 *base;
+
+  // We use this to call readUInt32Digital, which needs the correct reason
+  pasynUserSelf->reason = digitalInputParam_;
    
   /* Default of 100 msec for backwards compatibility with old version */
   if (msecPoll == 0) msecPoll = 100;
@@ -331,7 +346,9 @@ IpUnidig::IpUnidig(const char *portName, int carrier, int slot, int msecPoll, in
   }
 
   /* Create the asynPortDriver parameter for the data */
-  createParam("DIGITAL_DATA", asynParamUInt32Digital, &dataParam_); 
+  createParam(digitalInputString,  asynParamUInt32Digital, &digitalInputParam_); 
+  createParam(digitalOutputString, asynParamUInt32Digital, &digitalOutputParam_); 
+  createParam(DACOutputString,     asynParamInt32,         &DACOutputParam_); 
 
   /* Start the thread to poll and handle interrupt callbacks to 
    * device support */
@@ -371,6 +388,12 @@ asynStatus IpUnidig::readUInt32Digital(asynUser *pasynUser, epicsUInt32 *value, 
   ipUnidigRegisters r = regs_;
 
   if(rebooting_) epicsThreadSuspendSelf();
+  if (pasynUser->reason != digitalInputParam_) {
+    asynPrint(pasynUser, ASYN_TRACE_ERROR,
+              "%s:%s:, invalid reason=%d\n", 
+              driverName, functionName, pasynUser->reason);
+    return(asynError);
+  }
   *value = 0;
   if (r.inputRegisterLow)  *value  = (epicsUInt32) *r.inputRegisterLow;
   if (r.inputRegisterHigh) *value |= (epicsUInt32) (*r.inputRegisterHigh << 16);
@@ -388,6 +411,12 @@ asynStatus IpUnidig::writeUInt32Digital(asynUser *pasynUser, epicsUInt32 value, 
 
   /* For the IP-Unidig differential output models, must enable all outputs */
   if(rebooting_) epicsThreadSuspendSelf();
+  if (pasynUser->reason != digitalOutputParam_) {
+    asynPrint(pasynUser, ASYN_TRACE_ERROR,
+              "%s:%s:, invalid reason=%d\n", 
+              driverName, functionName, pasynUser->reason);
+    return(asynError);
+  }
   if ((manufacturer_ == GREENSPRING_ID)  &&
       ((model_ == UNIDIG_D) || (model_ == UNIDIG_I_D))) {
     *r.outputEnableLow  |= (epicsUInt16) mask;
@@ -407,6 +436,12 @@ asynStatus IpUnidig::writeUInt32Digital(asynUser *pasynUser, epicsUInt32 value, 
 asynStatus IpUnidig::writeInt32(asynUser *pasynUser, epicsInt32 value)
 {
   static const char *functionName = "writeInt32";
+  if (pasynUser->reason != DACOutputParam_) {
+    asynPrint(pasynUser, ASYN_TRACE_ERROR,
+              "%s:%s:, invalid reason=%d\n", 
+              driverName, functionName, pasynUser->reason);
+    return(asynError);
+  }
   ipUnidigRegisters r = regs_;
   if ((manufacturer_ == GREENSPRING_ID)  &&
       ((model_ == UNIDIG_HV_16I8O)   || (model_ == UNIDIG_HV_8I16O)  ||
@@ -427,6 +462,12 @@ asynStatus IpUnidig::readInt32(asynUser *pasynUser, epicsInt32 *value)
   static const char *functionName = "readInt32";
   ipUnidigRegisters r = regs_;
 
+  if (pasynUser->reason != DACOutputParam_) {
+    asynPrint(pasynUser, ASYN_TRACE_ERROR,
+              "%s:%s:, invalid reason=%d\n", 
+              driverName, functionName, pasynUser->reason);
+    return(asynError);
+  }
   if ((manufacturer_ == GREENSPRING_ID)  &&
       ((model_ == UNIDIG_HV_16I8O)   || (model_ == UNIDIG_HV_8I16O)  ||
        (model_ == UNIDIG_I_HV_16I8O) || (model_ == UNIDIG_HV_8I16O))) 
@@ -580,8 +621,8 @@ void IpUnidig::pollerThread()
     if (interruptMask) {
       oldBits_ = newBits;
       forceCallback_ = 0;
-      asynPortDriver::setUIntDigitalParam(dataParam_, newBits, 0xFFFFFFFF);
-      asynPortDriver::setUInt32DigitalInterrupt(dataParam_, interruptMask, interruptOnBoth);
+      asynPortDriver::setUIntDigitalParam(digitalInputParam_, newBits, 0xFFFFFFFF);
+      asynPortDriver::setUInt32DigitalInterrupt(digitalInputParam_, interruptMask, interruptOnBoth);
       callParamCallbacks();
     }
   }
