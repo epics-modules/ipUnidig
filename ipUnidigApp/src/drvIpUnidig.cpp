@@ -185,9 +185,6 @@ IpUnidig::IpUnidig(const char *portName, int carrier, int slot, int msecPoll, in
   ipac_idProm_t *id;
   epicsUInt16 *base;
 
-  // We use this to call readUInt32Digital, which needs the correct reason
-  pasynUserSelf->reason = digitalInputParam_;
-   
   /* Default of 100 msec for backwards compatibility with old version */
   if (msecPoll == 0) msecPoll = 100;
   pollTime_ = msecPoll / 1000.;
@@ -350,6 +347,9 @@ IpUnidig::IpUnidig(const char *portName, int carrier, int slot, int msecPoll, in
   createParam(digitalOutputString, asynParamUInt32Digital, &digitalOutputParam_); 
   createParam(DACOutputString,     asynParamInt32,         &DACOutputParam_); 
 
+  // We use this to call readUInt32Digital, which needs the correct reason
+  pasynUserSelf->reason = digitalInputParam_;
+   
   /* Start the thread to poll and handle interrupt callbacks to 
    * device support */
   epicsThreadCreate("ipUnidig",
@@ -389,7 +389,7 @@ asynStatus IpUnidig::readUInt32Digital(asynUser *pasynUser, epicsUInt32 *value, 
 
   if(rebooting_) epicsThreadSuspendSelf();
   if (pasynUser->reason != digitalInputParam_) {
-    asynPrint(pasynUser, ASYN_TRACE_ERROR,
+    asynPrint(pasynUser, ASYN_TRACE_FLOW,
               "%s:%s:, invalid reason=%d\n", 
               driverName, functionName, pasynUser->reason);
     return(asynError);
@@ -412,7 +412,7 @@ asynStatus IpUnidig::writeUInt32Digital(asynUser *pasynUser, epicsUInt32 value, 
   /* For the IP-Unidig differential output models, must enable all outputs */
   if(rebooting_) epicsThreadSuspendSelf();
   if (pasynUser->reason != digitalOutputParam_) {
-    asynPrint(pasynUser, ASYN_TRACE_ERROR,
+    asynPrint(pasynUser, ASYN_TRACE_FLOW,
               "%s:%s:, invalid reason=%d\n", 
               driverName, functionName, pasynUser->reason);
     return(asynError);
@@ -437,7 +437,7 @@ asynStatus IpUnidig::writeInt32(asynUser *pasynUser, epicsInt32 value)
 {
   static const char *functionName = "writeInt32";
   if (pasynUser->reason != DACOutputParam_) {
-    asynPrint(pasynUser, ASYN_TRACE_ERROR,
+    asynPrint(pasynUser, ASYN_TRACE_FLOW,
               "%s:%s:, invalid reason=%d\n", 
               driverName, functionName, pasynUser->reason);
     return(asynError);
@@ -463,7 +463,7 @@ asynStatus IpUnidig::readInt32(asynUser *pasynUser, epicsInt32 *value)
   ipUnidigRegisters r = regs_;
 
   if (pasynUser->reason != DACOutputParam_) {
-    asynPrint(pasynUser, ASYN_TRACE_ERROR,
+    asynPrint(pasynUser, ASYN_TRACE_FLOW,
               "%s:%s:, invalid reason=%d\n", 
               driverName, functionName, pasynUser->reason);
     return(asynError);
