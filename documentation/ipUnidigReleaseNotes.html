@@ -9,6 +9,22 @@
   <h1 style="text-align: center">
     ipUnidig Release Notes</h1>
   <h2 style="text-align: center">
+    Release 2-9 (Nov. 2, 2011)</h2>
+  <ul>
+    <li>Fixed logic for interrupt callbacks. These were not working correctly if only
+      rising or falling edge interrupts were enabled, both not both. This was a problem
+      in asynPortDriver which is fixed in asyn R4-18, but required a small change to the
+      ipUnidig driver as well. This problem caused the quadEM module to not receive callbacks
+      when used with the ipUnidig.</li>
+    <li>Fixed bug that caused the bo records to be initialized to the value of the bi
+      records. Standard asyn device support does this to support bumpless reboots. This
+      is not desired in the case of the Ip-Unidig where the inputs and outputs are unrelated,
+      and was happening because there was only one parameter being used, rather than separate
+      parameters for input and output. Fixed the problem by defining 3 parameter drvInfo
+      strings: DIGITAL_INPUT, DIGITAL_OUTPUT, and DAC_OUTPUT. The databases were changed
+      to use these drvInfo strings.</li>
+  </ul>
+  <h2 style="text-align: center">
     Release 2-8 (Sept 9, 2011)</h2>
   <ul>
     <li>Modified RELEASE; deleted RELEASE.arch.</li>
