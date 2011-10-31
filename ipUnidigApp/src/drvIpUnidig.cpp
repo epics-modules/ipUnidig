@@ -98,7 +98,7 @@ typedef struct {
 } ipUnidigMessage;
 
 
-static const char *driverName = "IpUnidig";
+static const char *driverName = "drvIpUnidig";
 
 
 /** This is the class definition for the IpUnidig class*/
@@ -429,7 +429,8 @@ asynStatus IpUnidig::writeUInt32Digital(asynUser *pasynUser, epicsUInt32 value, 
   if (r.outputRegisterLow)  *r.outputRegisterLow  &= (epicsUInt16) (value | ~mask);
   if (r.outputRegisterHigh) *r.outputRegisterHigh &=(epicsUInt16) ((value | ~mask) >> 16);
   asynPrint(pasynUser, ASYN_TRACEIO_DRIVER,
-            "%s:%s, value=%x, mask=%x\n", driverName, functionName, value, mask);
+            "%s:%s:, value=%x, mask=%x\n", 
+            driverName, functionName, value, mask);
   return(asynSuccess);
 }
 
@@ -452,7 +453,9 @@ asynStatus IpUnidig::writeInt32(asynUser *pasynUser, epicsInt32 value)
   } 
   else 
   {
-    asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s:%s,not allowed for this model",driverName, functionName);
+    asynPrint(pasynUser, ASYN_TRACE_ERROR, 
+        "%s:%s,not allowed for this model",
+        driverName, functionName);
     return(asynError);
   }
 }
@@ -477,7 +480,9 @@ asynStatus IpUnidig::readInt32(asynUser *pasynUser, epicsInt32 *value)
   } 
   else 
   {
-    asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s:%s,not allowed for this model",driverName, functionName);
+    asynPrint(pasynUser, ASYN_TRACE_ERROR, 
+        "%s:%s: not allowed for this model",
+        driverName, functionName);
     return(asynError);
   }
 }
@@ -495,7 +500,9 @@ asynStatus IpUnidig::getBounds(asynUser *pasynUser, epicsInt32 *low, epicsInt32 
   } 
   else 
   {
-    asynPrint(pasynUser, ASYN_TRACE_ERROR,"%s %s,not allowed for this model", driverName, functionName);
+    asynPrint(pasynUser, ASYN_TRACE_ERROR,
+        "%s:%s:, not allowed for this model", 
+        driverName, functionName);
     return(asynError);
   }
 }
@@ -591,6 +598,7 @@ void IpUnidig::pollerThread()
   //static const char *functionName = "pollerThread";
   epicsUInt32 newBits, changedBits, interruptMask=0;
   ipUnidigMessage msg;
+  static const char *functionName = "pollerThread";
 
   while(1) {    
     /*  Wait for an interrupt or for the poll time, whichever comes first */
@@ -606,12 +614,13 @@ void IpUnidig::pollerThread()
       newBits = msg.bits;
       interruptMask = msg.interruptMask;
       asynPrint(this->pasynUserSelf, ASYN_TRACE_FLOW,
-                "drvIpUnidig::pollerThread, got interrupt\n");
+                "%s:%s:, got interrupt\n",
+                driverName, functionName);
     }
 
     asynPrint(this->pasynUserSelf, ASYN_TRACEIO_DRIVER,
-              "drvIpUnidig::pollerThread, bits=%x, oldBits=%x, interruptMask=%x\n", 
-              newBits, oldBits_, interruptMask);
+              "%s:%s:, bits=%x, oldBits=%x, interruptMask=%x\n", 
+              driverName, functionName, newBits, oldBits_, interruptMask);
 
     /* We detect change both from interruptMask (which only works for
      * interrupts) and changedBits, which works for polling */
@@ -621,8 +630,7 @@ void IpUnidig::pollerThread()
     if (interruptMask) {
       oldBits_ = newBits;
       forceCallback_ = 0;
-      asynPortDriver::setUIntDigitalParam(digitalInputParam_, newBits, 0xFFFFFFFF);
-      asynPortDriver::setUInt32DigitalInterrupt(digitalInputParam_, interruptMask, interruptOnBoth);
+      asynPortDriver::setUIntDigitalParam(digitalInputParam_, newBits, 0xFFFFFFFF, interruptMask);
       callParamCallbacks();
     }
   }
