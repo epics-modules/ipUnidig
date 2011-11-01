@@ -349,6 +349,10 @@ IpUnidig::IpUnidig(const char *portName, int carrier, int slot, int msecPoll, in
 
   // We use this to call readUInt32Digital, which needs the correct reason
   pasynUserSelf->reason = digitalInputParam_;
+  
+  // Set the values of rising mask and falling mask in the parameter library, just for reporting purposes
+  asynPortDriver::setUInt32DigitalInterrupt(digitalInputParam_, risingMask_, interruptOnZeroToOne);
+  asynPortDriver::setUInt32DigitalInterrupt(digitalInputParam_, fallingMask_, interruptOnOneToZero);
    
   /* Start the thread to poll and handle interrupt callbacks to 
    * device support */
@@ -417,6 +421,9 @@ asynStatus IpUnidig::writeUInt32Digital(asynUser *pasynUser, epicsUInt32 value, 
               driverName, functionName, pasynUser->reason);
     return(asynError);
   }
+  /* Put value in parameter library */
+  setUIntDigitalParam(pasynUser->reason, value, mask);
+  
   if ((manufacturer_ == GREENSPRING_ID)  &&
       ((model_ == UNIDIG_D) || (model_ == UNIDIG_I_D))) {
     *r.outputEnableLow  |= (epicsUInt16) mask;
@@ -443,6 +450,9 @@ asynStatus IpUnidig::writeInt32(asynUser *pasynUser, epicsInt32 value)
               driverName, functionName, pasynUser->reason);
     return(asynError);
   }
+  /* Put value in parameter library */
+  setIntegerParam(pasynUser->reason, value);
+
   ipUnidigRegisters r = regs_;
   if ((manufacturer_ == GREENSPRING_ID)  &&
       ((model_ == UNIDIG_HV_16I8O)   || (model_ == UNIDIG_HV_8I16O)  ||
@@ -511,6 +521,9 @@ asynStatus IpUnidig::setInterruptUInt32Digital(asynUser *pasynUser, epicsUInt32 
 {
   //static const char *functionName = "setInterruptUInt32Digital";
  
+  /* Call the base class method to put mask in parameter library so report shows it */
+  asynPortDriver::setInterruptUInt32Digital(pasynUser, mask, reason);
+  
   switch (reason) {
     case interruptOnZeroToOne:
       risingMask_ = mask;
@@ -530,6 +543,9 @@ asynStatus IpUnidig::setInterruptUInt32Digital(asynUser *pasynUser, epicsUInt32 
 asynStatus IpUnidig::clearInterruptUInt32Digital(asynUser *pasynUser, epicsUInt32 mask)
 {
   //static const char *functionName = "clearInterruptUInt32Digital";
+
+  /* Call the base class method to put mask in parameter library so report shows it */
+  asynPortDriver::clearInterruptUInt32Digital(pasynUser, mask);
 
   risingMask_ &= ~mask;
   fallingMask_ &= ~mask;
