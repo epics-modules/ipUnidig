@@ -150,6 +150,10 @@ private:
 
 #define NUM_IPUNIDIG_PARAMS (&LAST_IPUNIDIG_PARAM - &FIRST_IPUNIDIG_PARAM + 1)
 
+#define MAX_IP_UNIDIG_CARDS 256
+static IpUnidig* driverTable[MAX_IP_UNIDIG_CARDS];
+static int numCards;
+
 // These functions must have C linkage because they are called from other EPICS components
 extern "C" {
 static void rebootCallbackC(void * pPvt)
@@ -164,9 +168,9 @@ static void pollerThreadC(void * pPvt)
   pIpUnidig->pollerThread();
 }
 
-static void intFuncC(void * pPvt)
+static void intFuncC(int card)
 {
-  IpUnidig *pIpUnidig = (IpUnidig *)pPvt;
+  IpUnidig *pIpUnidig = driverTable[card];
   pIpUnidig->intFunc();
 }
 }
@@ -370,7 +374,9 @@ IpUnidig::IpUnidig(const char *portName, int carrier, int slot, int msecPoll, in
     /* Interrupt support */
     /* Write to the interrupt polarity and enable registers */
     *regs_.intVecRegister = intVec;
-    if (devConnectInterruptVME(intVec, intFuncC, (void *)this)) {
+    driverTable[numCards] = this;
+    numCards++;
+    if (ipmIntConnect(carrier, slot, intVec, intFuncC, numCards-1)) {
       errlogPrintf("ipUnidig interrupt connect failure\n");
     }
     *regs_.intPolarityRegisterLow  = (epicsUInt16)polarityMask_;
@@ -434,7 +440,7 @@ asynStatus IpUnidig::writeUInt32Digital(asynUser *pasynUser, epicsUInt32 value, 
   if (r.outputRegisterHigh) *r.outputRegisterHigh |= (epicsUInt16) ((value & mask) >> 16);
   /* Clear bits that are clear in the value and set in the mask */
   if (r.outputRegisterLow)  *r.outputRegisterLow  &= (epicsUInt16) (value | ~mask);
-  if (r.outputRegisterHigh) *r.outputRegisterHigh &=(epicsUInt16) ((value | ~mask) >> 16);
+  if (r.outputRegisterHigh) *r.outputRegisterHigh &= (epicsUInt16) ((value | ~mask) >> 16);
   asynPrint(pasynUser, ASYN_TRACEIO_DRIVER,
             "%s:%s:, value=%x, mask=%x\n", 
             driverName, functionName, value, mask);
@@ -699,8 +705,7 @@ extern "C" int initIpUnidig(const char *portName, int carrier, int slot,
                  int msecPoll, int intVec, int risingMask, 
                  int fallingMask)
 {
-  IpUnidig *pIpUnidig=new IpUnidig(portName,carrier,slot,msecPoll,intVec,risingMask,fallingMask);
-  pIpUnidig=NULL;
+  new IpUnidig(portName,carrier,slot,msecPoll,intVec,risingMask,fallingMask);
   return(asynSuccess);
 }
 
