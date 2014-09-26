@@ -258,7 +258,7 @@ IpUnidig::IpUnidig(const char *portName, int carrier, int slot, int msecPoll, in
   regs_.outputRegisterHigh       = base + 0x1;
   regs_.inputRegisterLow         = base + 0x2;
   regs_.inputRegisterHigh        = base + 0x3;
-  regs_.outputEnableLow          = base + 0x8;
+  regs_.outputEnableLow          = base + 0x4;
   regs_.outputEnableHigh         = base + 0x5;
   regs_.controlRegister0         = base + 0x6;
   regs_.intVecRegister           = base + 0x8;
