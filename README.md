@@ -8,9 +8,9 @@ Devices supported in ipUnidig include:
     a 24-channel Input/Output model with interrupt support.
   * IP-OPTOIO-8 eight-bit isolated digital I/O.
 
-From [Systran](http://www.systran.com)
-* DIO316I, 48-bit digital I/O module. The software currently only supports 24 bits
-  on this device, and does not support the interrupt feature.
+* From [Systran](http://www.systran.com)
+  * DIO316I, 48-bit digital I/O module. The software currently only supports 24 bits
+    on this device, and does not support the interrupt feature.
 
 The support is written as an asynPortDriver using the the [EPICS asyn module](https://github.com/epics-modules/asyn)
 
