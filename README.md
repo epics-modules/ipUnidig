@@ -1,5 +1,4 @@
-An [EPICS](http://www.aps.anl.gov/epics/) 
-module that supports the Industry Pack digital I/O modules.
+An [EPICS](http://www.aps.anl.gov/epics/) module that supports Industry Pack digital I/O modules.
 
 Devices supported in ipUnidig include:
 * From [SBS](http://www.sbs.com)
