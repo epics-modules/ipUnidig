@@ -620,13 +620,16 @@ void IpUnidig::pollerThread()
   //static const char *functionName = "pollerThread";
   epicsUInt32 newBits, changedBits, interruptMask=0;
   ipUnidigMessage msg;
+  int status;
   static const char *functionName = "pollerThread";
 
-  while(1) {    
+  while(1) {
     /*  Wait for an interrupt or for the poll time, whichever comes first */
-    if (epicsMessageQueueReceiveWithTimeout(msgQId_, 
+    status = epicsMessageQueueReceiveWithTimeout(msgQId_, 
                                             &msg, sizeof(msg), 
-                                            pollTime_) == -1) {
+                                            pollTime_);
+    lock();
+    if (status == -1) {
       /* The wait timed out, so there was no interrupt, so we need
        * to read the bits.  If there was an interrupt the bits got
        * set in the interrupt routines */
@@ -655,6 +658,7 @@ void IpUnidig::pollerThread()
       asynPortDriver::setUIntDigitalParam(digitalInputParam_, newBits, 0xFFFFFFFF, interruptMask);
       callParamCallbacks();
     }
+    unlock();
   }
 }
 
