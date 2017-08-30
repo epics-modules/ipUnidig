@@ -9,6 +9,14 @@
   <h1 style="text-align: center">
     ipUnidig Release Notes</h1>
   <h2 style="text-align: center">
+    Release 2-11 (September XXX, 2017)</h2>
+  <ul>
+    <li>Fixed bug in drvIpUnidig::pollerThread(). It was not taking the lock when accessing
+      the asynPortDriver parameter library. This was causing occassional IOC hangs and
+      crashes, particularly when using the filterDriver.st SNL program with SPEC.</li>
+    <li>Moved repository from SVN at APS to Github.</li>
+  </ul>
+  <h2 style="text-align: center">
     Release 2-10 (Dec. 5, 2014)</h2>
   <ul>
     <li>Fixed error in outputEnableLow register address for IP-UD-D and IP-UD-ID.</li>
