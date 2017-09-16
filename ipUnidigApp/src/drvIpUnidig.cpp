@@ -140,15 +140,11 @@ private:
   // support to set the output records based on the input records, which it will do
   // if they are the same parameter.
   int digitalInputParam_;
-  #define FIRST_IPUNIDIG_PARAM digitalInputParam_
   int digitalOutputParam_;
   int DACOutputParam_;
-  #define LAST_IPUNIDIG_PARAM DACOutputParam_
   
   void writeIntEnableRegs();
 };
-
-#define NUM_IPUNIDIG_PARAMS (&LAST_IPUNIDIG_PARAM - &FIRST_IPUNIDIG_PARAM + 1)
 
 #define MAX_IP_UNIDIG_CARDS 256
 static IpUnidig* driverTable[MAX_IP_UNIDIG_CARDS];
@@ -176,7 +172,7 @@ static void intFuncC(int card)
 }
 
 IpUnidig::IpUnidig(const char *portName, int carrier, int slot, int msecPoll, int intVec, int risingMask, int fallingMask)
-  :asynPortDriver(portName,1,NUM_IPUNIDIG_PARAMS,
+  :asynPortDriver(portName,1,
                   asynInt32Mask | asynUInt32DigitalMask | asynDrvUserMask,
                   asynUInt32DigitalMask,
                   0,1,0,0),
