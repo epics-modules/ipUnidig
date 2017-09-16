@@ -1,0 +1,35 @@
+# ### ipUnidig.iocsh ###
+
+#- ###################################################
+#- PREFIX         - IOC Prefix
+#- PORT           - Name to give IP330's asyn port
+#- INT_VEC        - Interrupt Vector
+#- SUB            - Optional: Unidig binary configuration substitions file (ipUnidigBi.db/ ipUnidigBo.db) 
+#-                            Macros P and PORT are set automatically
+#-                  Default: $(IPUNIDIG)/iocsh/EXAMPLE_ipUnidig.substitutions
+#-
+#- CARRIER        - Optional: IPAC carrier number (0, 1, etc.)
+#-                  Default: 0
+#-
+#- SLOT           - Optional: IPAC slot (0,1,2,3, etc.)
+#-                  Default: 0
+#-
+#- RISE_MASK      - Optional: mask of bits to generate interrupts on low to high (24 bits)
+#-                  Default: 0xffffff
+#-
+#- FALL_MASK      - Optional: mask of bits to generate interrupts on high to low (24 bits)
+#-                  Default: 0xffffff
+#-
+#- SCAN_POLL      - Optional: polling time for input bits that don't use interrupts (in msec).
+#-                  Default: 1000
+#- ###################################################
+
+
+# Initialize Greenspring IP-Unidig
+initIpUnidig("$(PORT)", $(CARRIER=0), $(SLOT=0), $(SCAN_POLL=1000), $(INT_VEC), $(RISE_MASK=0xffffff), $(FALL_MASK=0xffffff))
+
+# IP-Unidig binary I/O
+dbLoadTemplate("$(SUB=$(IPUNIDIG)/iocsh/EXAMPLE_ipUnidig.substitutions)", "P=$(PREFIX), PORT=$(PORT)")
+
+dbLoadRecords("$(IPUNIDIG)/ipUnidigApp/Db/IpUnidigLi.db", "P=$(PREFIX), R=$(PORT)Li, PORT=$(PORT), SCAN=1 second")
+dbLoadRecords("$(IPUNIDIG)/ipUnidigApp/Db/IpUnidigLo.db", "P=$(PREFIX), R=$(PORT)Lo, PORT=$(PORT)")
