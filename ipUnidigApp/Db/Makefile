@@ -10,9 +10,12 @@ include $(TOP)/configure/CONFIG
 #----------------------------------------------------
 # Create and install (or just install)
 # databases, templates, substitutions like this
-#DB += dbExample1.db
-#DB += dbExample2.db
-#DB += dbSubExample.db
+
+DB += $(patsubst ../%, %, $(wildcard ../*.template))
+DB += $(patsubst ../%, %, $(wildcard ../*.db))
+DB += $(patsubst ../%, %, $(wildcard ../*.vdb))
+
+REQ += $(patsubst ../%, %, $(wildcard ../*.req))
 
 #----------------------------------------------------
 # If <anyname>.db template is not named <anyname>*.template add
