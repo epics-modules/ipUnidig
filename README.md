@@ -12,6 +12,9 @@ Devices supported in ipUnidig include:
   * DIO316I, 48-bit digital I/O module. The software currently only supports 24 bits
     on this device, and does not support the interrupt feature.
 
+* From [Acromag](http://www.acromag.com)
+  * IP408, 32-bit digital I/O module with 0-60V inputs and outputs. 
+
 The support is written as an asynPortDriver using the the [EPICS asyn module](https://github.com/epics-modules/asyn)
 
 Additional information:
