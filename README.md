@@ -15,6 +15,6 @@ Devices supported in ipUnidig include:
 The support is written as an asynPortDriver using the the [EPICS asyn module](https://github.com/epics-modules/asyn)
 
 Additional information:
-* [Home page](https://cars.uchicago.edu/software/epics/ipUnidig.html)
-* [Documentation](https://cars.uchicago.edu/software/epics/ipUnidigDoc.html)
-* [Release notes](https://cars.uchicago.edu/software/epics/ipUnidigReleaseNotes.html)
+* [Home page](http://htmlpreview.github.com/?https://github.com/epics-modules/ipUnidig/blob/master/documentation/ipUnidig.html)
+* [Documentation](http://htmlpreview.github.com/?https://github.com/epics-modules/ipUnidig/blob/master/documentation/ipUnidigDoc.html)
+* [Release notes](http://htmlpreview.github.com/?https://github.com/epics-modules/ipUnidig/blob/master/documentation/ipUnidigReleaseNotes.html)
