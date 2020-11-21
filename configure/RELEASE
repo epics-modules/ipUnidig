@@ -10,11 +10,11 @@ TEMPLATE_TOP=$(EPICS_BASE)/templates/makeBaseApp/top
 
 SUPPORT=/corvette/home/epics/devel
 
-ASYN=$(SUPPORT)/asyn-4-36
+ASYN=$(SUPPORT)/asyn-4-41
 IPAC=$(SUPPORT)/ipac-2-15
 
 # EPICS_BASE usually appears last so other apps can override stuff:
-EPICS_BASE=/corvette/usr/local/epics-devel/base-7.0.3
+EPICS_BASE=/corvette/usr/local/epics-devel/base-7.0.4
 
 #Capfast users may need the following definitions
 #CAPFAST_TEMPLATES=
