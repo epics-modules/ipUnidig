@@ -322,6 +322,19 @@ IpUnidig::IpUnidig(const char *portName, int carrier, int slot, int msecPoll, in
           regs_.inputRegisterHigh   = base + 0x1;
           regs_.outputRegisterLow   = base + 0x2;
           regs_.outputRegisterHigh  = base + 0x3;
+          regs_.intEnableRegisterLow     = base + 0x4;
+          regs_.intEnableRegisterHigh    = NULL;
+	           /*The controlRegister controls the interrupt type,
+	             D0-D7 each bit is Ch0-Ch7. All bit set to 0 after reset.
+	             1 means COS, 0 means H/L depends on the Poloarty */
+          regs_.controlRegister0         = base + 0x5;
+          *regs_.controlRegister0 = 0;
+          regs_.intPolarityRegisterLow   = base + 0x6;
+          regs_.intPolarityRegisterHigh  = NULL;
+          regs_.intPendingRegisterLow    = base + 0x7;
+          regs_.intPendingRegisterHigh   = NULL;
+          regs_.intClearRegisterLow   = base + 0x7;
+          regs_.intClearRegisterHigh   = NULL;
           regs_.intVecRegister      = base + 0x8;
           break;
       }
@@ -356,6 +369,7 @@ IpUnidig::IpUnidig(const char *portName, int carrier, int slot, int msecPoll, in
     case UNIDIG_I_HV_16I8O:
     case UNIDIG_I_O_12I12O:
     case UNIDIG_I_HV_8I16O:
+    case ACROMAG_IP408_32:         
       supportsInterrupts_ = 1;
       break;
     default:
