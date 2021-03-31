@@ -407,9 +407,11 @@ IpUnidig::IpUnidig(const char *portName, int carrier, int slot, int msecPoll, in
     *regs_.intVecRegister = intVec;
     driverTable[numCards] = this;
     numCards++;
-    if (ipmIntConnect(carrier, slot, intVec, intFuncC, numCards-1)) {
-      errlogPrintf("ipUnidig interrupt connect failure\n");
-    }
+    for (int iCh=0; iCh<8; iCh++) {
+        if (ipmIntConnect(carrier, slot, intVec+iCh, intFuncC, numCards-1)) {
+          errlogPrintf("ipUnidig interrupt connect failure\n");
+        }
+    } 
     *regs_.intPolarityRegisterLow  = (epicsUInt16)polarityMask_;
     *regs_.intPolarityRegisterHigh = (epicsUInt16)(polarityMask_ >> 16);
     writeIntEnableRegs();
