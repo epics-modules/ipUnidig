@@ -324,7 +324,7 @@ IpUnidig::IpUnidig(const char *portName, int carrier, int slot, int msecPoll, in
           regs_.inputRegisterHigh   = base + 0x1;
           regs_.outputRegisterLow   = base + 0x2;
           regs_.outputRegisterHigh  = base + 0x3;
-	  regs_.intEnableRegisterLow     = base + 0x4;
+          regs_.intEnableRegisterLow     = base + 0x4;
           regs_.intEnableRegisterHigh    = NULL;
           regs_.controlRegister0         = base + 0x5;
           regs_.intPolarityRegisterLow   = base + 0x6;
@@ -334,15 +334,15 @@ IpUnidig::IpUnidig(const char *portName, int carrier, int slot, int msecPoll, in
           regs_.intClearRegisterLow   = base + 0x7;
           regs_.intClearRegisterHigh   = NULL;
           regs_.intVecRegister      = base + 0x8;
-	  /*The controlRegister controls the interrupt type,
-	    D0-D7 each bit is Ch0-Ch7. All bit set to 0 after reset.
-	    1 means COS, 0 means H/L depends on the Poloarty
-	    If user choose both rising edge and falling edge, the COS is configured.
-	    If rising edge are choosen, the polarity Mask is 1 for that channel.
-	    The polarity mask will have no effect if COS is configured for that channel.*/
+          /*The controlRegister controls the interrupt type,
+            D0-D7 each bit is Ch0-Ch7. All bit set to 0 after reset.
+            1 means COS, 0 means H/L depends on the Poloarty
+            If user choose both rising edge and falling edge, the COS is configured.
+            If rising edge are choosen, the polarity Mask is 1 for that channel.
+            The polarity mask will have no effect if COS is configured for that channel.*/
           *regs_.controlRegister0 = risingMask_ & fallingMask_ & IP408_8CH_MASK;
-	  polarityMask_ =risingMask_&IP408_8CH_MASK;
-	  break;
+          polarityMask_ =risingMask_&IP408_8CH_MASK;
+          break;
       }
       break;
     case SBS_ID:
@@ -416,20 +416,20 @@ IpUnidig::IpUnidig(const char *portName, int carrier, int slot, int msecPoll, in
 
     switch (model_) {
       case ACROMAG_IP408_32:
-	for (int iCh=0; iCh<8; iCh++) {
-	  if (ipmIntConnect(carrier, slot, intVec+iCh, intFuncC, numCards-1)) {
-	    errlogPrintf("ipUnidig interrupt connect failure\n");
-	  }
+        for (int iCh=0; iCh<8; iCh++) {
+          if (ipmIntConnect(carrier, slot, intVec+iCh, intFuncC, numCards-1)) {
+            errlogPrintf("ipUnidig interrupt connect failure\n");
+          }
         }
-	*regs_.intPolarityRegisterLow  = (epicsUInt16)(polarityMask_& IP408_8CH_MASK);
+        *regs_.intPolarityRegisterLow  = (epicsUInt16)(polarityMask_& IP408_8CH_MASK);
         break;
       default:
-	if (ipmIntConnect(carrier, slot, intVec, intFuncC, numCards-1)) {
-	  errlogPrintf("ipUnidig interrupt connect failure\n");
-	}
-	*regs_.intPolarityRegisterLow  = (epicsUInt16)polarityMask_;
-	*regs_.intPolarityRegisterHigh = (epicsUInt16)(polarityMask_ >> 16);
-	break;
+        if (ipmIntConnect(carrier, slot, intVec, intFuncC, numCards-1)) {
+          errlogPrintf("ipUnidig interrupt connect failure\n");
+        }
+        *regs_.intPolarityRegisterLow  = (epicsUInt16)polarityMask_;
+        *regs_.intPolarityRegisterHigh = (epicsUInt16)(polarityMask_ >> 16);
+        break;
     }
 
     writeIntEnableRegs();
@@ -638,14 +638,14 @@ void IpUnidig::intFunc()
    * the interrupt clear register */
   switch (model_) {
       case ACROMAG_IP408_32:
-	*r.intClearRegisterLow = pendingLow = *r.intPendingRegisterLow  & IP408_8CH_MASK;
-	pendingMask = pendingLow;
+        *r.intClearRegisterLow = pendingLow = *r.intPendingRegisterLow  & IP408_8CH_MASK;
+        pendingMask = pendingLow;
         break;
       default:
-	*r.intClearRegisterLow = pendingLow = *r.intPendingRegisterLow;
-	*r.intClearRegisterHigh = pendingHigh = *r.intPendingRegisterHigh;
-	pendingMask = pendingLow | (pendingHigh << 16);
-	break;
+        *r.intClearRegisterLow = pendingLow = *r.intPendingRegisterLow;
+        *r.intClearRegisterHigh = pendingHigh = *r.intPendingRegisterHigh;
+        pendingMask = pendingLow | (pendingHigh << 16);
+        break;
   }
   /* Read the current input.  Don't use read() because that can print debugging. */
   if (r.inputRegisterLow)  inputs = (epicsUInt32) *r.inputRegisterLow;
@@ -659,21 +659,21 @@ void IpUnidig::intFunc()
 
   switch (model_) {
       case ACROMAG_IP408_32:
-	/*if the rising edge and falling edge can both generate interrupt,
-	  in the IP408 it should change controlRegister, not the PolarityRegister*/
-	break;
+        /*if the rising edge and falling edge can both generate interrupt,
+          in the IP408 it should change controlRegister, not the PolarityRegister*/
+        break;
       default:
-	/* Are there any bits which should generate interrupts on both the rising
-	 * and falling edge, and which just generated this interrupt? */
-	invertMask = pendingMask & risingMask_ & fallingMask_;
-	if (invertMask != 0) {
-	  /* We want to invert all bits in the polarityMask that are set in
-	   * invertMask. This is done with xor.*/
-	  polarityMask_ = polarityMask_ ^ invertMask;
-	  *r.intPolarityRegisterLow  = (epicsUInt16) polarityMask_;
-	  *r.intPolarityRegisterHigh = (epicsUInt16) (polarityMask_ >> 16);
-	}
-	break;
+        /* Are there any bits which should generate interrupts on both the rising
+         * and falling edge, and which just generated this interrupt? */
+        invertMask = pendingMask & risingMask_ & fallingMask_;
+        if (invertMask != 0) {
+          /* We want to invert all bits in the polarityMask that are set in
+           * invertMask. This is done with xor.*/
+          polarityMask_ = polarityMask_ ^ invertMask;
+          *r.intPolarityRegisterLow  = (epicsUInt16) polarityMask_;
+          *r.intPolarityRegisterHigh = (epicsUInt16) (polarityMask_ >> 16);
+        }
+        break;
   }
 }
 
@@ -737,13 +737,13 @@ void IpUnidig::writeIntEnableRegs()
   switch (model_) {
     case ACROMAG_IP408_32:
       *r.intEnableRegisterLow  = (epicsUInt16) (risingMask_ |
-						fallingMask_)&(IP408_8CH_MASK);
+                                                fallingMask_)&(IP408_8CH_MASK);
       break;
     default:
       *r.intEnableRegisterLow  = (epicsUInt16) (risingMask_ |
-						fallingMask_);
+                                                fallingMask_);
       *r.intEnableRegisterHigh = (epicsUInt16) ((risingMask_ |
-						 fallingMask_) >> 16);
+                                                 fallingMask_) >> 16);
       break;
   }
 
@@ -783,7 +783,7 @@ void IpUnidig::report(FILE *fp, int details)
     fprintf(fp, "  intEnableRegister=%x\n", intEnableRegister);
     fprintf(fp, "  intPolarityRegister=%x\n", intPolarityRegister);
     fprintf(fp, "  messages sent OK=%d; send failed (queue full)=%d\n",
-	     messagesSent_, messagesFailed_);
+             messagesSent_, messagesFailed_);
   }
   asynPortDriver::report(fp, details);
 }
