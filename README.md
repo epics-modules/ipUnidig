@@ -18,6 +18,6 @@ Devices supported in ipUnidig include:
 The support is written as an asynPortDriver using the the [EPICS asyn module](https://github.com/epics-modules/asyn)
 
 Additional information:
-* [Home page](http://htmlpreview.github.com/?https://github.com/epics-modules/ipUnidig/blob/master/documentation/ipUnidig.html)
-* [Documentation](http://htmlpreview.github.com/?https://github.com/epics-modules/ipUnidig/blob/master/documentation/ipUnidigDoc.html)
-* [Release notes](http://htmlpreview.github.com/?https://github.com/epics-modules/ipUnidig/blob/master/documentation/ipUnidigReleaseNotes.html)
+* [Home page](https://htmlpreview.github.io/?https://github.com/epics-modules/ipUnidig/blob/master/documentation/ipUnidig.html)
+* [Documentation](https://htmlpreview.github.io/?https://github.com/epics-modules/ipUnidig/blob/master/documentation/ipUnidigDoc.html)
+* [Release notes](https://htmlpreview.github.io/?https://github.com/epics-modules/ipUnidig/blob/master/documentation/ipUnidigReleaseNotes.html)
